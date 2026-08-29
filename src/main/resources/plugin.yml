@@ -3,7 +3,7 @@ version: ${mc.version}
 main: dev.nyx.Nyx
 api-version: '1.21'
 description: Nyx — Nullify Your Xploits. A modern, high-performance, prediction-based anticheat.
-author: Nyx Development Team
+author: Intellix
 
 folia-supported: true
 
