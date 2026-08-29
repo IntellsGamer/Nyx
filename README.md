@@ -19,14 +19,25 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 ## Requirements
 
 - **Java 21+**
-- **Paper** 1.21.x (or a Paper fork: Purpur, Folia, etc.)
+- **Paper** 1.21.5, **1.21.6**, or **1.21.11** (or a matching Paper fork: Purpur, Folia, etc.) — each version ships a specialized jar pinned to the right Paper API + PacketEvents.
 - ProtocolLib, Geyser/Floodgate and ViaVersion are optional soft dependencies.
+
+## Versions
+
+| MC version | Module | Jar | Paper | PacketEvents |
+| --- | --- | --- | --- | --- |
+| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
+| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
+| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
+
+Each jar is a specialized build — the shared source is compiled against that version's Paper API and PacketEvents, so the packet listeners and checks are verified against the matching PacketEvents release.
 
 ## Installation
 
-1. Drop `Nyx-1.0.2.jar` into your server's `plugins/` folder.
-2. Restart (or `/reload` — a restart is recommended).
-3. Tune `plugins/Nyx/config.yml` to taste, then run `/nyx reload`.
+1. Pick the jar for your server's Minecraft version (see table above).
+2. Drop it into your server's `plugins/` folder.
+3. Restart (or `/reload` — a restart is recommended).
+4. Tune `plugins/Nyx/config.yml` to taste, then run `/nyx reload`.
 
 ## Commands
 
@@ -82,11 +93,17 @@ Also featured: Discord webhook alerts, Geyser/Floodgate Bedrock auto-tuning, cre
 
 ## Building from source
 
+The project is a Maven multi-module build — one module per Minecraft version, all sharing the same source in `src/`.
+
 ```bash
+# Build every supported version
 mvn clean package
+
+# Or build a single version
+mvn clean package -pl 1.21.6
 ```
 
-The shaded jar is output to `target/Nyx-<version>.jar`. The build requires JDK 21 and Maven 3.9+.
+Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6.jar`). The build requires JDK 21 and Maven 3.9+.
 
 ## License
 

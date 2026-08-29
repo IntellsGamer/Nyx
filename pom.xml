@@ -7,68 +7,47 @@
     <groupId>dev.nyx</groupId>
     <artifactId>Nyx</artifactId>
     <version>1.0.2</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <name>Nyx</name>
-    <description>Nyx — Nullify Your Xploits. A modern, high-performance, prediction-based anticheat for Paper 1.21+.</description>
+    <description>Nyx — Nullify Your Xploits. A modern, high-performance, prediction-based anticheat for Paper. One shared source, one specialized jar per Minecraft version.</description>
+
+    <modules>
+        <module>1.21.5</module>
+        <module>1.21.6</module>
+        <module>1.21.11</module>
+    </modules>
 
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
+        <mc.version>1.21.5</mc.version>
         <paper.version>1.21.5-R0.1-SNAPSHOT</paper.version>
         <packetevents.version>2.8.0</packetevents.version>
         <adventure.version>4.18.0</adventure.version>
     </properties>
 
-    <repositories>
-        <repository>
-            <id>papermc</id>
-            <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        <repository>
-            <id>jitpack</id>
-            <url>https://jitpack.io</url>
-        </repository>
-        <repository>
-            <id>codemc</id>
-            <url>https://repo.codemc.io/repository/maven-public/</url>
-        </repository>
-    </repositories>
-
-    <dependencies>
-        <dependency>
-            <groupId>io.papermc.paper</groupId>
-            <artifactId>paper-api</artifactId>
-            <version>${paper.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.retrooper</groupId>
-            <artifactId>packetevents-spigot</artifactId>
-            <version>${packetevents.version}</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <version>${adventure.version}</version>
-            <scope>provided</scope>
-        </dependency>
-    </dependencies>
-
     <build>
-        <finalName>Nyx-${project.version}</finalName>
+        <sourceDirectory>${basedir}/../src/main/java</sourceDirectory>
+        <finalName>Nyx-${mc.version}</finalName>
+        <resources>
+            <resource>
+                <directory>${basedir}/../src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>plugin.yml</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>${basedir}/../src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>plugin.yml</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -122,4 +101,49 @@
             </plugin>
         </plugins>
     </build>
+
+    <repositories>
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>codemc</id>
+            <url>https://repo.codemc.io/repository/maven-public/</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.retrooper</groupId>
+            <artifactId>packetevents-spigot</artifactId>
+            <version>${packetevents.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <version>${adventure.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
 </project>
