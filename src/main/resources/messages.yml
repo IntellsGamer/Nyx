@@ -1,0 +1,43 @@
+# +-----------------------------------------------------------------------+
+# |  Nyx Messages (Legacy § Color Codes)                                 |
+# |  Use §0-§f for colors, §l for bold, §r for reset                     |
+# +-----------------------------------------------------------------------+
+
+commands:
+  no-permission: "§cYou don't have permission to use this command."
+  player-only: "§cOnly players can use this command."
+  invalid-player: "§cPlayer not found."
+
+  reload:
+    success: "§aConfiguration reloaded successfully."
+    fail: "§cFailed to reload configuration. Check console for errors."
+
+  alerts:
+    toggled-on: "§aAlerts enabled."
+    toggled-off: "§cAlerts disabled."
+
+  check:
+    header: "§6=== Violations for <player> ==="
+    entry: "<check>: §c<violations> VL"
+    no-data: "§cNo data available for this player."
+    no-violations: "§aNo violations recorded."
+
+  setback:
+    success: "§eSetback <player>."
+    fail: "§cFailed to setback <player>."
+
+  exempt:
+    added: "§a<player> is now exempt from all checks."
+    removed: "§e<player> is no longer exempt."
+    already: "§e<player> is already exempt."
+    not-exempt: "§e<player> is not exempt."
+
+alert:
+  staff: "<check> §7failed§r §c<player> §7(VL: <violations>)"
+  verbose: "<check> §7failed§r §c<player> §7(VL: <violations> | <info>)"
+
+punishment:
+  kick: "§cYou have been removed from the server."
+  ban: "§cYou have been banned."
+  notify-staff: "§c<player> was punished for <check>"
+  broadcast: "§c<player> was punished for <check>"

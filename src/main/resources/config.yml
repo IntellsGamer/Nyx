@@ -1,0 +1,488 @@
+# +-----------------------------------------------------------------------+
+# |  Nyx Anticheat v1.0.1                                                |
+# |  Nullify Your Xploits                                                 |
+# |  Default values tuned for Paper 1.21+ with vanilla physics           |
+# +-----------------------------------------------------------------------+
+#
+# MOVEMENT PHYSICS REFERENCE (blocks/tick @ 20 TPS):
+#   Walk:       0.2159  (4.317 m/s)
+#   Sprint:     0.2806  (5.612 m/s)  — ×1.30 walk
+#   Sneak:      0.0648  (1.296 m/s)  — ×0.30 walk
+#   Sprint-jump:0.3290  (6.580 m/s)  — ×1.17 sprint
+#   Ice walk:   0.2159  (same accel, near-zero friction decay)
+#   Ice sprint: 0.2806
+#   Speed I:    +20% per tier
+#   Slowness:   -15% per tier
+#   Grav:       0.08  / tick²
+#   Jump vel:   0.42  → 1.252 blocks height
+#   Term vel:  -3.92  / tick
+#   Water drag: 0.8/tick; Lava drag: 0.5/tick
+#
+# All values are unmodified vanilla. Adjust sensitivity up if you get FPs,
+# or down if cheaters are bypassing. Start at 0.8 and move 0.05 at a time.
+# +-----------------------------------------------------------------------+
+
+general:
+  # Prefix shown before all anticheat messages (MiniMessage format)
+  prefix: "<gray>[<gradient:#ff6b6b:#ffd93d>Nyx</gradient>]</gray>"
+  # Check for updates on startup
+  check-for-updates: true
+
+alerts:
+  # Send violation alerts in chat
+  enabled: true
+  # Permission required to *receive* alerts (players with this get broadcasts)
+  permission: "nyx.admin"
+  # Cooldown between consecutive alerts for the same check+player (ms)
+  cooldown: 1000
+  # Show extra debug info in alerts (exact deltas, thresholds, etc.)
+  verbose: false
+  # Broadcast punishment messages to the whole server
+  broadcast-punishments: true
+
+performance:
+  # Max players that run full checks (-1 = unlimited)
+  max-checked-players: -1
+  # How often (in ticks) heavy checks re-run.  1 = every tick, 2 = every other tick
+  heavy-check-interval: 2
+  # Run checks off the main thread (false = main thread, safer but laggier)
+  async-checks: true
+  # Use Java 21+ virtual threads for check execution
+  virtual-threads: true
+
+bypass:
+  # Gamemodes that auto-exempt from ALL checks
+  gamemodes:
+    - creative
+    - spectator
+  # Worlds where ALL checks are disabled
+  worlds: []
+  # Respect nyx.bypass.* permissions
+  permission-bypass: true
+
+# +-----------------------------------------------------------------------+
+#  CHECKS  —  threshold, actions                                          |
+# +-----------------------------------------------------------------------+
+#  threshold:     VL at which an alert is sent (0 = every flag)
+#  decay:         VL removed every second (higher = faster forgiveness)
+#  max-violations:VL at which the highest action triggers
+#  sensitivity:   0.0 (very lenient)  –  1.0 (very strict)
+#  actions:       Available: alert, setback, kick, ban, cmd:<command>
+#                 Use " @ N" suffix to delay the action until VL ≥ N
+#                 Examples:
+#                   - "alert"                    → always alert
+#                   - "setback @ 20"             → setback at VL 20
+#                   - "kick @ 50"                → kick at VL 50
+#                   - "cmd:tempban %player% 7d"  → custom command at VL 0
+# +-----------------------------------------------------------------------+
+
+checks:
+  # ——— MOVEMENT ———
+  speed:
+    enabled: true
+    description: "Detects horizontal/vertical speed above vanilla limits"
+    threshold: 10
+    decay: 2
+    max-violations: 50
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 20"
+      - "kick @ 50"
+
+  fly:
+    enabled: true
+    description: "Detects flight, air-jump, hover, and vertical-speed cheats"
+    threshold: 10
+    decay: 2
+    max-violations: 40
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 20"
+      - "kick @ 40"
+
+  nofall:
+    enabled: true
+    description: "Detects fall-damage mitigation (bugged landing packets)"
+    threshold: 5
+    decay: 3
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 10"
+      - "kick @ 20"
+
+  timer:
+    enabled: true
+    description: "Detects game-speed modification (packet timing)"
+    threshold: 10
+    decay: 1
+    max-violations: 30
+    sensitivity: 0.7
+    actions:
+      - "alert"
+      - "kick @ 30"
+
+  phase:
+    enabled: true
+    description: "Detects noclip / wall-glitching"
+    threshold: 3
+    decay: 3
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "setback @ 3"
+      - "kick @ 10"
+
+  jesus:
+    enabled: true
+    description: "Detects water-walking (hovering above liquids)"
+    threshold: 8
+    decay: 2
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 12"
+      - "kick @ 20"
+
+  boatfly:
+    enabled: true
+    description: "Detects flying or speed-hacking with boats"
+    threshold: 5
+    decay: 2
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 10"
+      - "kick @ 20"
+
+  # ——— COMBAT ———
+  killaura:
+    enabled: true
+    description: "Detects kill-aura (aimbot rotations, multi-target)"
+    threshold: 10
+    decay: 3
+    max-violations: 30
+    sensitivity: 0.7
+    actions:
+      - "alert"
+      - "kick @ 30"
+
+  reach:
+    enabled: true
+    description: "Detects extended attack range (dynamic ping compensation)"
+    threshold: 5
+    decay: 1
+    max-violations: 15
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 3"
+      - "setback @ 5"
+      - "kick @ 15"
+
+  aimassist:
+    enabled: true
+    description: "Detects aim-assist via GCD / rotation-smoothness analysis"
+    threshold: 15
+    decay: 2
+    max-violations: 40
+    sensitivity: 0.7
+    actions:
+      - "alert"
+      - "kick @ 40"
+
+  autoclicker:
+    enabled: true
+    description: "Detects auto-clickers (CPS, variance, consistency)"
+    threshold: 12
+    decay: 3
+    max-violations: 30
+    sensitivity: 0.7
+    actions:
+      - "alert"
+      - "kick @ 30"
+
+  velocity:
+    enabled: true
+    description: "Detects anti-knockback (horizontal reduction)"
+    threshold: 10
+    decay: 3
+    max-violations: 25
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 15"
+      - "kick @ 25"
+
+  hitbox:
+    enabled: true
+    description: "Detects attacks that completely miss the entity hitbox"
+    threshold: 5
+    decay: 3
+    max-violations: 15
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  selfinteract:
+    enabled: true
+    description: "Detects players attacking themselves"
+    threshold: 1
+    decay: 5
+    max-violations: 3
+    sensitivity: 1.0
+    actions:
+      - "alert"
+      - "kick @ 3"
+
+  multiinteract:
+    enabled: true
+    description: "Detects attacking multiple entities in the same tick"
+    threshold: 3
+    decay: 4
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  noswing:
+    enabled: true
+    description: "Detects attacking without a swing animation"
+    threshold: 5
+    decay: 3
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "kick @ 20"
+
+  aimmodulo360:
+    enabled: true
+    description: "Detects modulo-360 yaw snapping"
+    threshold: 5
+    decay: 4
+    max-violations: 15
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  attackwhileusing:
+    enabled: true
+    description: "Detects attacking while using an item (eating, blocking, etc.)"
+    threshold: 3
+    decay: 4
+    max-violations: 10
+    sensitivity: 1.0
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  entityspeed:
+    enabled: true
+    description: "Detects impossible vehicle input values"
+    threshold: 5
+    decay: 3
+    max-violations: 15
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  entitycontrol:
+    enabled: true
+    description: "Detects riding a rideable without the correct control item"
+    threshold: 5
+    decay: 3
+    max-violations: 15
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  boat:
+    enabled: true
+    description: "Detects spoofed boat packets or incorrect paddle states"
+    threshold: 5
+    decay: 3
+    max-violations: 15
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  elytraa:
+    enabled: true
+    description: "Detects starting to glide while already gliding"
+    threshold: 3
+    decay: 3
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  elytrab:
+    enabled: true
+    description: "Detects starting to glide without jumping"
+    threshold: 3
+    decay: 3
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  elytrac:
+    enabled: true
+    description: "Detects starting to glide too frequently"
+    threshold: 3
+    decay: 3
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  extraelytra:
+    enabled: true
+    description: "Detects ExtraElytra hacks (packet spam, speed/height control)"
+    threshold: 5
+    decay: 3
+    max-violations: 15
+    sensitivity: 0.85
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  tridenta:
+    enabled: true
+    description: "Detects attempting riptide while not in water"
+    threshold: 3
+    decay: 3
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  tridentb:
+    enabled: true
+    description: "Detects riptide spamming (too frequent)"
+    threshold: 3
+    decay: 3
+    max-violations: 10
+    sensitivity: 0.9
+    actions:
+      - "alert"
+      - "kick @ 10"
+
+  # ——— OTHER ———
+  badpackets:
+    enabled: true
+    description: "Detects impossible packets (NaN, speed > 100, invalid pitch)"
+    threshold: 5
+    decay: 5
+    max-violations: 15
+    sensitivity: 0.95
+    actions:
+      - "alert"
+      - "kick @ 15"
+
+  inventorymove:
+    enabled: true
+    description: "Detects moving while a non-crafting inventory is open"
+    threshold: 8
+    decay: 2
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 15"
+      - "kick @ 20"
+
+  fastbreak:
+    enabled: true
+    description: "Detects FastBreak / Nuker block-breaking exploits (premature STOP_DESTROY packets)"
+    threshold: 5
+    decay: 3
+    max-violations: 20
+    sensitivity: 0.85
+    actions:
+      - "alert"
+      - "kick @ 20"
+
+  fastplace:
+    enabled: true
+    description: "Detects FastPlace / AutoBuild placement-speed exploits"
+    threshold: 10
+    decay: 2
+    max-violations: 25
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "kick @ 25"
+
+  fastuse:
+    enabled: true
+    description: "Detects fast-item-use and auto-soup"
+    threshold: 10
+    decay: 2
+    max-violations: 25
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "kick @ 25"
+
+  web:
+    enabled: true
+    description: "Detects walking through cobwebs at normal speed (NoWeb)"
+    threshold: 3
+    decay: 4
+    max-violations: 10
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 6"
+      - "kick @ 10"
+
+punishment:
+  # Broadcast punishment actions to the server
+  broadcast: true
+  # Delay before executing the punishment (ticks, 20 = 1 sec)
+  delay: 0
+  # Console commands executed on punishment (use %player% %check% placeholders)
+  commands:
+    kick: "kick %player% §cCheating detected! [%check%]"
+    ban: "ban %player% §cCheating detected! [%check%]"
+
+discord:
+  # Discord webhook URL (leave empty to disable)
+  webhook-url: ""
+  # Cooldown between webhook pings (seconds)
+  cooldown: 5
+  # Embed appearance
+  embed:
+    color: 16720980
+    footer: "Nyx Anticheat v1.0.1"
+    show-server: true
+    show-ping: true
+
+geyser:
+  # Auto-exempt Geyser/Floodgate Bedrock players (reduces false flags)
+  enabled: true
+  # Use reduced sensitivity for Bedrock players
+  reduced-sensitivity: true
+
+gui:
+  # Title for the check-toggling inventory (MiniMessage)
+  title: "<gradient:#ff6b6b:#ffd93d>Nyx Checks</gradient>"
+  rows: 3

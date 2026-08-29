@@ -1,0 +1,102 @@
+name: Nyx
+version: 1.0.1
+main: dev.nyx.Nyx
+api-version: '1.21'
+description: Nyx — Nullify Your Xploits. A modern, high-performance, prediction-based anticheat.
+author: Nyx Development Team
+
+folia-supported: true
+
+load: POSTWORLD
+
+softdepend:
+  - ProtocolLib
+  - Geyser-Spigot
+  - Floodgate
+  - ViaVersion
+
+commands:
+  nyx:
+    description: Main Nyx anticheat command
+    aliases: [ac, anticheat]
+    usage: /<command> [alerts|check|reload|setback|exempt|gui]
+
+permissions:
+  nyx.admin:
+    description: Receive anticheat violation alerts and admin broadcasts
+    default: op
+    children:
+      nyx.alerts: true
+      nyx.reload: true
+      nyx.setback: true
+      nyx.exempt: true
+      nyx.notify: true
+      nyx.bypass.*: true
+
+  nyx.alerts:
+    description: Toggle anticheat alerts
+    default: op
+
+  nyx.reload:
+    description: Reload Nyx configuration
+    default: op
+
+  nyx.setback:
+    description: Setback a player
+    default: op
+
+  nyx.exempt:
+    description: Exempt a player from checks
+    default: op
+
+  nyx.notify:
+    description: Receive automatic violation notifications
+    default: op
+
+  nyx.bypass.*:
+    description: Bypass all checks
+    default: false
+    children:
+      nyx.bypass.speed: true
+      nyx.bypass.fly: true
+      nyx.bypass.nofall: true
+      nyx.bypass.timer: true
+      nyx.bypass.phase: true
+      nyx.bypass.jesus: true
+      nyx.bypass.killaura: true
+      nyx.bypass.reach: true
+      nyx.bypass.aimassist: true
+      nyx.bypass.autoclicker: true
+      nyx.bypass.velocity: true
+      nyx.bypass.badpackets: true
+      nyx.bypass.inventorymove: true
+      nyx.bypass.fastuse: true
+
+  nyx.bypass.speed:
+    default: false
+  nyx.bypass.fly:
+    default: false
+  nyx.bypass.nofall:
+    default: false
+  nyx.bypass.timer:
+    default: false
+  nyx.bypass.phase:
+    default: false
+  nyx.bypass.jesus:
+    default: false
+  nyx.bypass.killaura:
+    default: false
+  nyx.bypass.reach:
+    default: false
+  nyx.bypass.aimassist:
+    default: false
+  nyx.bypass.autoclicker:
+    default: false
+  nyx.bypass.velocity:
+    default: false
+  nyx.bypass.badpackets:
+    default: false
+  nyx.bypass.inventorymove:
+    default: false
+  nyx.bypass.fastuse:
+    default: false
