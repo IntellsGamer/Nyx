@@ -13,10 +13,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ExtraElytraCheck extends Check {
 
     private static final int MAX_START_PACKETS = 5;
+    private static final double IMPOSSIBLE_TOTAL_SPEED = 4.50;
+    private static final double HORIZONTAL_LEVEL_SPEED = 2.70;
     private static final double IMPOSSIBLE_VSPEED = 0.70;
-    private static final double IMPOSSIBLE_HSPEED = 4.20;
     private static final float PITCH_UP_CUTOFF = -60f;
-    private static final float PITCH_DOWN_CUTOFF = 25f;
+    private static final float PITCH_DOWN_CUTOFF = 30f;
     private static final double FLAG_BUFFER = 6.0;
     private static final long FIREWORK_EXEMPT_MS = 5000;
     private static final long GLIDE_START_EXEMPT_MS = 3000;
@@ -56,6 +57,7 @@ public class ExtraElytraCheck extends Check {
 
         double deltaY = data.getDeltaY();
         double horizSpeed = data.getHorizontalSpeed();
+        double totalSpeed = Math.hypot(Math.hypot(data.getDeltaX(), data.getDeltaZ()), deltaY);
 
         var history = data.getRotationHistory();
         if (history.isEmpty()) return;
@@ -63,15 +65,21 @@ public class ExtraElytraCheck extends Check {
 
         boolean suspected = false;
 
-        if (deltaY > IMPOSSIBLE_VSPEED && pitch > PITCH_UP_CUTOFF) {
+        if (totalSpeed > IMPOSSIBLE_TOTAL_SPEED) {
             state.buffer += 1.0;
-            state.lastInfo = String.format("HeightCtrl DY:%.3f P:%.1f", deltaY, pitch);
+            state.lastInfo = String.format("SpeedCtrl V:%.3f P:%.1f", totalSpeed, pitch);
             suspected = true;
         }
 
-        if (horizSpeed > IMPOSSIBLE_HSPEED && pitch < PITCH_DOWN_CUTOFF) {
+        if (horizSpeed > HORIZONTAL_LEVEL_SPEED && pitch < PITCH_DOWN_CUTOFF) {
             state.buffer += 1.0;
             state.lastInfo = String.format("SpeedCtrl S:%.3f P:%.1f", horizSpeed, pitch);
+            suspected = true;
+        }
+
+        if (deltaY > IMPOSSIBLE_VSPEED && pitch > PITCH_UP_CUTOFF) {
+            state.buffer += 1.0;
+            state.lastInfo = String.format("HeightCtrl DY:%.3f P:%.1f", deltaY, pitch);
             suspected = true;
         }
 

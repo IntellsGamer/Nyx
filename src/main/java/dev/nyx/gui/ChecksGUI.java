@@ -93,14 +93,13 @@ public final class ChecksGUI implements Listener {
 
     private void openPage(Player player, int page) {
         int totalPages = (int) Math.ceil((double) ALL_CHECKS.length / CHECKS_PER_PAGE);
-        if (page < 0) page = 0;
-        if (page >= totalPages) page = totalPages - 1;
-        playerPages.put(player.getUniqueId(), page);
+        int target = Math.max(0, Math.min(page, totalPages - 1));
+        playerPages.put(player.getUniqueId(), target);
 
         Inventory inv = Bukkit.createInventory(null, 27,
-            Component.text("Nyx Anticheat - Page " + (page + 1) + "/" + totalPages));
+            Component.text("Nyx Anticheat - Page " + (target + 1) + "/" + totalPages));
 
-        int start = page * CHECKS_PER_PAGE;
+        int start = target * CHECKS_PER_PAGE;
         int end = Math.min(start + CHECKS_PER_PAGE, ALL_CHECKS.length);
         int slot = 0;
 
@@ -131,7 +130,7 @@ public final class ChecksGUI implements Listener {
             slot++;
         }
 
-        if (page > 0) {
+        if (target > 0) {
             ItemStack prevArrow = new ItemStack(Material.ARROW);
             ItemMeta prevMeta = prevArrow.getItemMeta();
             if (prevMeta != null) {
@@ -144,12 +143,12 @@ public final class ChecksGUI implements Listener {
         ItemStack pageInfo = new ItemStack(Material.PAPER);
         ItemMeta infoMeta = pageInfo.getItemMeta();
         if (infoMeta != null) {
-            infoMeta.displayName(legacy.deserialize("§ePage " + (page + 1) + "/" + totalPages));
+            infoMeta.displayName(legacy.deserialize("§ePage " + (target + 1) + "/" + totalPages));
             pageInfo.setItemMeta(infoMeta);
         }
         inv.setItem(22, pageInfo);
 
-        if (page < totalPages - 1) {
+        if (target < totalPages - 1) {
             ItemStack nextArrow = new ItemStack(Material.ARROW);
             ItemMeta nextMeta = nextArrow.getItemMeta();
             if (nextMeta != null) {
@@ -161,6 +160,7 @@ public final class ChecksGUI implements Listener {
 
         player.openInventory(inv);
         openInventories.put(player.getUniqueId(), inv);
+        playerPages.put(player.getUniqueId(), target);
     }
 
     @EventHandler
@@ -205,6 +205,7 @@ public final class ChecksGUI implements Listener {
         String path = "checks." + checkName + ".enabled";
         boolean current = config.getBoolean(path, true);
         config.set(path, !current);
+        plugin.saveConfig();
         plugin.getNyxConfig().reload();
     }
 

@@ -1,5 +1,5 @@
 # +-----------------------------------------------------------------------+
-# |  Nyx Anticheat v1.0.1                                                |
+# |  Nyx Anticheat v1.0.2                                                |
 # |  Nullify Your Xploits                                                 |
 # |  Default values tuned for Paper 1.21+ with vanilla physics           |
 # +-----------------------------------------------------------------------+
@@ -472,7 +472,7 @@ discord:
   # Embed appearance
   embed:
     color: 16720980
-    footer: "Nyx Anticheat v1.0.1"
+    footer: "Nyx Anticheat v1.0.2"
     show-server: true
     show-ping: true
 

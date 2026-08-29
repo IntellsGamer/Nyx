@@ -37,7 +37,7 @@ public final class DiscordWebhook {
                   {"name": "Violations", "value": "%d", "inline": true},
                   {"name": "Server", "value": "%s", "inline": true}
                 ],
-                "footer": {"text": "Nyx Anticheat v1.0.1"},
+                "footer": {"text": "Nyx Anticheat v1.0.2"},
                 "timestamp": "%s"
               }]
             }
@@ -66,7 +66,7 @@ public final class DiscordWebhook {
             HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("User-Agent", "Nyx-Anticheat/1.0.1");
+            conn.setRequestProperty("User-Agent", "Nyx-Anticheat/1.0.2");
             conn.setDoOutput(true);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);

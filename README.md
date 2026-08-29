@@ -24,7 +24,7 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 
 ## Installation
 
-1. Drop `Nyx-1.0.1.jar` into your server's `plugins/` folder.
+1. Drop `Nyx-1.0.2.jar` into your server's `plugins/` folder.
 2. Restart (or `/reload` — a restart is recommended).
 3. Tune `plugins/Nyx/config.yml` to taste, then run `/nyx reload`.
 
