@@ -1,0 +1,52 @@
+name: Publish Nyx Release Jars
+
+on:
+  workflow_dispatch:
+    inputs:
+      versions:
+        description: 'Space-separated Minecraft versions to publish (e.g. 1.21.5 1.21.6 1.21.11)'
+        required: false
+        default: '1.21.5 1.21.6 1.21.11'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build shade jars
+        run: mvn -q -DskipTests clean package
+
+      - name: Publish / update releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for v in ${{ inputs.versions }}; do
+            jar="$GITHUB_WORKSPACE/$v/target/Nyx-$v.jar"
+
+            if [ ! -f "$jar" ]; then
+              echo "::error::Missing built jar: $jar (is $v a valid module?)"
+              exit 1
+            fi
+
+            if gh release view "$v" >/dev/null 2>&1; then
+              echo "Release $v exists -> updating assets with --clobber"
+              gh release upload "$v" "$jar" --clobber
+            else
+              echo "Creating release $v"
+              gh release create "$v" "$jar" \
+                --title "Nyx $v" \
+                --notes "Nyx $v — Nullify Your Xploits. Specialized build for Paper $v." 
+            fi
+          done
