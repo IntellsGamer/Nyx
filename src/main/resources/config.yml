@@ -112,7 +112,7 @@ checks:
     max-violations: 50
     sensitivity: 0.8
     actions:
-      - "alert"
+      - "alert @ 4"
       - "setback @ 20"
       - "kick @ 50"
       - "ban @ 75"
