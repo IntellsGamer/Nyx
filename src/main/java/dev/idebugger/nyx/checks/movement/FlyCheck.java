@@ -25,6 +25,10 @@ public class FlyCheck extends Check {
     private static final long LIQUID_RECENCY_MS = 1500;
     private static final double LIQUID_BELOW_DISTANCE = 1.5;
 
+    // Riptide launches the player upward through the air/water; the boost is
+    // legit but looks exactly like an ascend-hack, so skip the launch window.
+    private static final long RIPTIDE_GRACE_MS = 4000;
+
     public FlyCheck(Nyx plugin) {
         super(plugin);
     }
@@ -47,6 +51,7 @@ public class FlyCheck extends Check {
         if (data.isGliding()) return;
         if (data.isInVehicle()) return;
         if (data.getPlayer().isFlying()) return;
+        if (System.currentTimeMillis() - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
         if (data.isInWater() || data.isInLava()) return;
         if (data.isInWeb()) return;
         if (data.isClimbing()) return;

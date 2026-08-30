@@ -13,6 +13,9 @@ import org.bukkit.block.data.Waterlogged;
 @CheckData(name = "Jesus", description = "Detects water walking exploits")
 public class JesusCheck extends Check {
 
+    // Riptide in/above water is a legit high-speed launch, never water-walking.
+    private static final long RIPTIDE_GRACE_MS = 4000;
+
     public JesusCheck(Nyx plugin) {
         super(plugin);
     }
@@ -29,6 +32,7 @@ public class JesusCheck extends Check {
         if (data.isGliding()) return;
         if (data.isInVehicle()) return;
         if (data.getPlayer().isFlying()) return;
+        if (System.currentTimeMillis() - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
 
         var current = data.getPositionHistory().peekFirst();
         if (current == null) return;
