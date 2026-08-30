@@ -32,8 +32,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Plugin version is the root project version (e.g. 1.1.0). Jar files are
+          # named "<mc-version>+<plugin-version>" (e.g. Nyx-1.21.5+1.1.0.jar), but
+          # releases stay tagged by the Minecraft version (1.21.5/1.21.6/1.21.11).
+          NYX_VERSION=$(grep -oPm1 '(?<=<version>)[0-9]+\.[0-9]+\.[0-9]+' pom.xml)
+          echo "Plugin version: $NYX_VERSION"
           for v in ${{ inputs.versions }}; do
-            jar="$GITHUB_WORKSPACE/$v/target/Nyx-$v.jar"
+            jar="$GITHUB_WORKSPACE/$v/target/Nyx-$v+$NYX_VERSION.jar"
 
             if [ ! -f "$jar" ]; then
               echo "::error::Missing built jar: $jar (is $v a valid module?)"
@@ -47,6 +52,6 @@ jobs:
               echo "Creating release $v"
               gh release create "$v" "$jar" \
                 --title "Nyx $v" \
-                --notes "Nyx $v — Nullify Your Xploits. Specialized build for Paper $v." 
+                --notes "Nyx $v+$NYX_VERSION — Nullify Your Xploits. Specialized build for Paper $v."
             fi
           done
