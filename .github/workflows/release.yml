@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       versions:
-        description: 'Space-separated Minecraft versions to publish (e.g. 26.2 1.21.5 1.21.6 1.21.11)'
+        description: 'Space-separated Minecraft versions to publish (e.g. 1.21.5 1.21.6 1.21.11 26.2)'
         required: false
-        default: '26.2 1.21.5 1.21.6 1.21.11'
+        default: '1.21.5 1.21.6 1.21.11 26.2'
 
 permissions:
   contents: write
@@ -38,7 +38,10 @@ jobs:
           NYX_VERSION=$(grep -oPm1 '(?<=<version>)[0-9]+\.[0-9]+\.[0-9]+' pom.xml)
           echo "Plugin version: $NYX_VERSION"
 
-          for v in ${{ inputs.versions }}; do
+          read -r -a vers <<< "${{ inputs.versions }}"
+          last=$(( ${#vers[@]} - 1 ))
+          i=0
+          for v in "${vers[@]}"; do
             jar="$GITHUB_WORKSPACE/$v/target/Nyx-$v+$NYX_VERSION.jar"
 
             if [ ! -f "$jar" ]; then
@@ -46,12 +49,20 @@ jobs:
               exit 1
             fi
 
+            if [ "$i" -eq "$last" ]; then
+              latest_flag="--latest"
+            else
+              latest_flag="--latest=false"
+            fi
+            i=$((i + 1))
+
             if gh release view "$v" >/dev/null 2>&1; then
               echo "Release $v exists -> updating assets with --clobber"
               gh release upload "$v" "$jar" --clobber
+              gh release edit "$v" "$latest_flag" --draft=false
             else
               echo "Creating release $v"
-              gh release create "$v" "$jar" \
+              gh release create "$v" "$jar" "$latest_flag" \
                 --title "Nyx $v" \
                 --notes "Nyx $v+$NYX_VERSION — Nullify Your Xploits. Specialized build for Paper $v."
             fi
