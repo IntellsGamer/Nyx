@@ -274,7 +274,7 @@ checks:
     sensitivity: 0.8
     actions:
       - "alert"
-      - "kick @ 12"
+      - "kick @ 32"
 
   hitbox:
     enabled: true
