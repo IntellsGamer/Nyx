@@ -1,6 +1,6 @@
-# Maven — only finished shaded jars tracked
-**/target/*
-!**/target/Nyx-*.jar
+# Maven — build output never tracked
+**/target/
+Nyx-*.jar
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
