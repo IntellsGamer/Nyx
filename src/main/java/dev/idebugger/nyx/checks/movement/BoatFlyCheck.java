@@ -21,12 +21,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @CheckData(name = "BoatFly", description = "Detects flying or speed-hacking with boats")
 public class BoatFlyCheck extends Check {
 
-    private static final double SPEED_LAND = 0.22;
-    private static final double SPEED_WATER = 0.60;
-    private static final double SPEED_ICE = 2.60;
-    private static final double SPEED_BLUE_ICE = 4.40;
-    private static final double AIR_FLAG_SPEED = 0.45;
-    private static final double AIR_FLAG_BUFFER = 4.0;
+    private static final double SPEED_LAND = 0.7;
+    private static final double SPEED_WATER = 1.6;
+    private static final double SPEED_GROUND = 1.2;
+    private static final double SPEED_ICE = 4.0;
+    private static final double SPEED_BLUE_ICE = 6.0;
+    private static final double AIR_FLAG_SPEED = 0.6;
+    private static final double AIR_FLAG_SPEED_ICE = 6.5;
+    private static final double AIR_FLAG_BUFFER = 5.0;
+    private static final long ICE_MOMENTUM_MS = 2000;
     private static final long ENTER_GRACE_MS = 3000;
 
     private final Map<UUID, BoatState> stateMap = new ConcurrentHashMap<>();
@@ -66,7 +69,12 @@ public class BoatFlyCheck extends Check {
 
         if (!isBoatNearGround(boatLoc)) {
             double speed = data.getHorizontalSpeed();
-            if (speed > AIR_FLAG_SPEED) {
+            // Ice momentum: a boat launched off an ice highway stays airborne at extreme
+            // speed for a couple of seconds, so never flag it while the surface we just
+            // left was ice. Otherwise, sustained airborne speed is the real boat-fly signal.
+            boolean iceMomentum = System.currentTimeMillis() - state.lastIceMomentum < ICE_MOMENTUM_MS;
+            double airLimit = iceMomentum ? AIR_FLAG_SPEED_ICE : AIR_FLAG_SPEED;
+            if (speed > airLimit) {
                 state.airBuffer += 1.0;
                 if (state.airBuffer >= AIR_FLAG_BUFFER) {
                     state.airBuffer = 0;
@@ -86,6 +94,7 @@ public class BoatFlyCheck extends Check {
         String surface;
 
         if (isIce(at.getType()) || isIce(below.getType())) {
+            state.lastIceMomentum = System.currentTimeMillis();
             if (at.getType() == Material.BLUE_ICE || below.getType() == Material.BLUE_ICE) {
                 maxSpeed = SPEED_BLUE_ICE;
                 surface = "BLUE_ICE";
@@ -100,7 +109,7 @@ public class BoatFlyCheck extends Check {
             maxSpeed = SPEED_WATER;
             surface = "WATER";
         } else if (at.getType().isAir() && below.getType().isCollidable()) {
-            maxSpeed = SPEED_WATER;
+            maxSpeed = SPEED_GROUND;
             surface = "SURFACE";
         } else {
             maxSpeed = SPEED_LAND;
@@ -157,5 +166,6 @@ public class BoatFlyCheck extends Check {
 
     private static class BoatState {
         double airBuffer = 0;
+        long lastIceMomentum = 0;
     }
 }

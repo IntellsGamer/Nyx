@@ -37,6 +37,10 @@ public final class NyxPlayerData {
     private boolean inWeb;
     private boolean onIce;
     private IceType iceType = IceType.NONE;
+    private IceType lastIceType = IceType.NONE;
+    private long lastIceTime;
+    /** How long airborne speed is allowed to ride on ice momentum after leaving ice. */
+    public static final long ICE_MOMENTUM_MS = 1500;
     private boolean onSlime;
     private boolean onSoulSand;
     private boolean onHoney;
@@ -427,6 +431,25 @@ public final class NyxPlayerData {
     public void setOnIce(boolean onIce) { this.onIce = onIce; }
     public IceType getIceType() { return iceType; }
     public void setIceType(IceType iceType) { this.iceType = iceType; }
+
+    /** Records that the player is currently on ice, keeping last-seen type + timestamp. */
+    public void recordIce(IceType ice) {
+        if (ice != IceType.NONE) {
+            this.lastIceType = ice;
+            this.lastIceTime = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * True while the player recently stood on ice. Sprint-jumping on ice (or a boat
+     * launching off ice) legitimately keeps a high horizontal speed for a short time
+     * after leaving the surface, so checks must not flag it as speed cheating.
+     */
+    public boolean hasIceMomentum() {
+        return lastIceType != IceType.NONE && System.currentTimeMillis() - lastIceTime < ICE_MOMENTUM_MS;
+    }
+
+    public IceType getLastIceType() { return lastIceType; }
     public boolean isOnSlime() { return onSlime; }
     public void setOnSlime(boolean onSlime) { this.onSlime = onSlime; }
     public boolean isOnSoulSand() { return onSoulSand; }

@@ -46,6 +46,18 @@ public class SpeedCheck extends Check {
         if (data.isInLava()) return 0.30;
         if (data.isClimbing()) return 0.17;
 
+        // Sprint-jumping (or walking) on ice legitimately carries very high horizontal
+        // momentum for a short while after leaving the surface. Without this, the plain
+        // 0.45 airborne cap false-flags anyone sprint-jumping across ice/packed/blue ice.
+        if (!data.isOnGround() && !data.isLastOnGround() && data.hasIceMomentum()) {
+            IceType ice = data.getLastIceType();
+            return switch (ice) {
+                case BLUE_ICE -> 2.6;
+                case PACKED_ICE -> 1.8;
+                default -> 1.6; // ICE, FROSTED_ICE
+            };
+        }
+
         if (data.isOnGround() || data.isLastOnGround()) {
             IceType ice = data.getIceType();
             if (ice != null && ice != IceType.NONE) return ice.getMaxSpeed();

@@ -440,6 +440,7 @@ public final class PacketListener extends PacketListenerAbstract {
             NyxPlayerData.IceType ice = detectIce(player.getWorld(), toLocation);
             data.setIceType(ice);
             data.setOnIce(ice != NyxPlayerData.IceType.NONE);
+            data.recordIce(ice);
         }
         {
             boolean inWeb = false;
