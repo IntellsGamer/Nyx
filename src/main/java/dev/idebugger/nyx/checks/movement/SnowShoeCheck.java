@@ -18,11 +18,16 @@ import org.bukkit.inventory.ItemStack;
  * one thing the server can verify: the armour slot. Powder snow has no
  * collision shape server-side, so an on-ground player hovering above it
  * without leather boots is impossible in vanilla and always the exploit.
+ *
+ * Both sustained walking and bunny-hopping across the snow are covered: a
+ * walk accumulates consecutive on-ground ticks over the block, while hopping
+ * (short air gaps) is caught by counting each distinct landing instead.
  */
 @CheckData(name = "SnowShoe", description = "Detects walking on powder snow without leather boots")
 public class SnowShoeCheck extends Check {
 
-    private static final int FLAG_AFTER_TICKS = 3;
+    private static final int FLAG_AFTER_CONSECUTIVE_TICKS = 3;
+    private static final int FLAG_AFTER_CONTACTS = 4;
 
     public SnowShoeCheck(Nyx plugin) {
         super(plugin);
@@ -41,27 +46,36 @@ public class SnowShoeCheck extends Check {
         Player player = data.getPlayer();
         if (player.isFlying()) return;
 
-        if (!feetOverPowderSnow(player)) {
+        if (!feetOverPowderSnow(player) || wearsLeatherBoots(player)) {
+            // Off the snow or legitimately booted: fully fresh slate.
             data.setSnowShoeTicks(0);
-            return;
-        }
-
-        if (wearsLeatherBoots(player)) {
-            data.setSnowShoeTicks(0);
+            data.setSnowShoeContacts(0);
+            data.setSnowShoePrevBad(false);
             return;
         }
 
         if (!data.isOnGround()) {
+            // Mid-hop: the ticket counter resets but contact memory survives so
+            // jumping onto/over the snow repeatedly still accumulates.
             data.setSnowShoeTicks(0);
+            data.setSnowShoePrevBad(false);
             return;
         }
 
         int ticks = data.getSnowShoeTicks() + 1;
         data.setSnowShoeTicks(ticks);
 
-        if (ticks < FLAG_AFTER_TICKS) return;
+        if (!data.isSnowShoePrevBad()) {
+            data.setSnowShoeContacts(data.getSnowShoeContacts() + 1);
+        }
+        data.setSnowShoePrevBad(true);
 
-        flag(data, String.format("Ticks:%d", ticks));
+        if (ticks >= FLAG_AFTER_CONSECUTIVE_TICKS
+            || data.getSnowShoeContacts() >= FLAG_AFTER_CONTACTS) {
+            flag(data, String.format("T:%d C:%d",
+                ticks, data.getSnowShoeContacts()));
+            data.setSnowShoeTicks(0);
+        }
     }
 
     private boolean feetOverPowderSnow(Player player) {

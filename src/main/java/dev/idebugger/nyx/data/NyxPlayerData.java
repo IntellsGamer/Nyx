@@ -73,6 +73,8 @@ public final class NyxPlayerData {
     private Location lastSafeLocation;
     private int nofallCorrections;
     private int snowShoeTicks;
+    private int snowShoeContacts;
+    private boolean snowShoePrevBad;
     private boolean startGlidingThisTick;
     private boolean startGlidingLastTick;
     private boolean clientSprinting;
@@ -355,6 +357,10 @@ public final class NyxPlayerData {
 
     public int getSnowShoeTicks() { return snowShoeTicks; }
     public void setSnowShoeTicks(int ticks) { this.snowShoeTicks = Math.max(0, ticks); }
+    public int getSnowShoeContacts() { return snowShoeContacts; }
+    public void setSnowShoeContacts(int contacts) { this.snowShoeContacts = Math.max(0, contacts); }
+    public boolean isSnowShoePrevBad() { return snowShoePrevBad; }
+    public void setSnowShoePrevBad(boolean bad) { this.snowShoePrevBad = bad; }
     public boolean getPrevPosPacketOnGround() { return prevPosPacketOnGround; }
     public void resetAccumulatedPacketFall() { this.accumulatedPacketFall = 0; }
     public double getLastPosPacketY() { return lastPosPacketY; }

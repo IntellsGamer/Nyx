@@ -204,6 +204,7 @@ checks:
     actions:
       - "alert"
       - "setback @ 10"
+      - "kick @ 24"
 
   boatfly:
     enabled: true
