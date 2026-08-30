@@ -39,15 +39,18 @@ public class VelocityCheck extends Check {
     // Lenient on purpose: frictional ticks naturally eat less of the applied
     // velocity, so only a sustained majority of the 12-tick window flags. The
     // real deterrent is the knockback re-applied on every flag, not the count.
-    private static final double MIN_HORIZ_RATIO = 0.65;
+    private static final double MIN_HORIZ_RATIO = 0.70;
     private static final double MAX_HORIZ_RATIO = 2.0;
 
     /** Applied velocity magnitude above which we grant extra consumption tolerance (wind charges etc.). */
     private static final double STRONG_KNOCKBACK = 1.8;
     private static final double STRONG_TOLERANCE = 1.25;
 
-    private static final double FLAG_THRESHOLD = 3.0;
-    private static final double FLAG_THRESHOLD_LOW_SENSITIVITY = 4.0;
+    // 0.5 per under-consumed tick reaches the 2.0 threshold after ~5 in a row:
+    // unambiguous anti-knockback. Legit friction ticks are usually isolated and
+    // the -0.35 drain on good ticks keeps a normal player far below the line.
+    private static final double FLAG_THRESHOLD = 2.0;
+    private static final double FLAG_THRESHOLD_LOW_SENSITIVITY = 3.0;
     private static final double BAD_TICK_WEIGHT = 0.5;
     private static final double GOOD_TICK_DECAY = 0.35;
 
