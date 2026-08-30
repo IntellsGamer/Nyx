@@ -28,7 +28,7 @@ public final class ChecksGUI implements Listener {
 
     private static final String[] ALL_CHECKS = {
         "speed", "fly", "nofall", "timer", "phase", "jesus",
-        "boatfly",
+        "boatfly", "snowshoe",
         "elytraa", "elytrab", "elytrac", "extraelytra",
         "killaura", "reach", "aimassist", "autoclicker", "velocity",
         "hitbox", "selfinteract", "noswing", "multiinteract",
@@ -36,7 +36,7 @@ public final class ChecksGUI implements Listener {
         "tridenta", "tridentb",
         "badpackets", "inventorymove", "fastuse",
         "fastbreak", "fastplace",
-        "web",
+        "web", "scaffold",
         "boat", "entityspeed", "entitycontrol"
     };
 
@@ -50,6 +50,7 @@ public final class ChecksGUI implements Listener {
         CHECK_MATERIALS.put("phase", Material.BARRIER);
         CHECK_MATERIALS.put("jesus", Material.WATER_BUCKET);
         CHECK_MATERIALS.put("boatfly", Material.OAK_BOAT);
+        CHECK_MATERIALS.put("snowshoe", Material.LEATHER_BOOTS);
         CHECK_MATERIALS.put("elytraa", Material.ELYTRA);
         CHECK_MATERIALS.put("elytrab", Material.ELYTRA);
         CHECK_MATERIALS.put("elytrac", Material.ELYTRA);
@@ -73,6 +74,7 @@ public final class ChecksGUI implements Listener {
         CHECK_MATERIALS.put("fastbreak", Material.NETHERITE_PICKAXE);
         CHECK_MATERIALS.put("fastplace", Material.BRICK);
         CHECK_MATERIALS.put("web", Material.COBWEB);
+        CHECK_MATERIALS.put("scaffold", Material.SCAFFOLDING);
         CHECK_MATERIALS.put("boat", Material.OAK_BOAT);
         CHECK_MATERIALS.put("entityspeed", Material.MINECART);
         CHECK_MATERIALS.put("entitycontrol", Material.SADDLE);
