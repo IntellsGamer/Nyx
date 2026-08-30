@@ -154,7 +154,7 @@ public class NoFallCheck extends Check {
 
         if (onGround && !isNearGround(packetY, player)) {
             data.incrementNofallCorrections();
-            plugin.getLogger().info(String.format("%s NoFall correction #%d SPOOF FD:%.2f",
+            // plugin.getLogger().info(String.format("%s NoFall correction #%d SPOOF FD:%.2f",
                 player.getName(), data.getNofallCorrections(), totalAccum));
             applyFullFallDamage(player, totalAccum);
         }
