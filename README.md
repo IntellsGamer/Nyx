@@ -30,10 +30,10 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 
 | MC version | Module | Jar | Paper | PacketEvents |
 | --- | --- | --- | --- | --- |
-| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.1.11.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
-| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.1.11.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
-| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.1.11.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
-| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.1.11.jar` | `26.2.build.111-stable` | 2.13.0 |
+| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.2.0.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
+| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.2.0.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
+| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.2.0.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
+| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.2.0.jar` | `26.2.build.111-stable` | 2.13.0 |
 
 Each jar is a specialized build — the shared source is compiled against that version's Paper API and PacketEvents, so the packet listeners and checks are verified against the matching PacketEvents release. Ready-to-download binaries are also published to the [GitHub Releases](https://github.com/IntellsGamer/Nyx/releases) page (one release per Minecraft version).
 
@@ -154,7 +154,7 @@ mvn clean package
 mvn clean package -pl 1.21.6
 ```
 
-Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.11.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
+Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.2.0.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
 
 ## License
 
