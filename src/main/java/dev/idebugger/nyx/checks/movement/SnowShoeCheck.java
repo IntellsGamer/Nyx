@@ -29,6 +29,10 @@ public class SnowShoeCheck extends Check {
     private static final int FLAG_AFTER_CONSECUTIVE_TICKS = 3;
     private static final int FLAG_AFTER_CONTACTS = 4;
 
+    // A riptide launch loops over terrain (snow included) at high speed; keep
+    // the flight path exempt from powder-snow checks until the boost fades.
+    private static final long RIPTIDE_GRACE_MS = 4000;
+
     public SnowShoeCheck(Nyx plugin) {
         super(plugin);
     }
@@ -45,6 +49,7 @@ public class SnowShoeCheck extends Check {
 
         Player player = data.getPlayer();
         if (player.isFlying()) return;
+        if (System.currentTimeMillis() - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
 
         if (!feetOverPowderSnow(player) || wearsLeatherBoots(player)) {
             // Off the snow or legitimately booted: fully fresh slate.
