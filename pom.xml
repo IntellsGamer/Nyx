@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>dev.nyx</groupId>
+    <groupId>dev.idebugger.nyx</groupId>
     <artifactId>Nyx</artifactId>
     <version>1.1.0</version>
     <packaging>pom</packaging>
@@ -76,11 +76,11 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.github.retrooper.packetevents</pattern>
-                                    <shadedPattern>dev.nyx.libs.packetevents.com.github.retrooper.packetevents</shadedPattern>
+                                    <shadedPattern>dev.idebugger.nyx.libs.packetevents.com.github.retrooper.packetevents</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>io.github.retrooper.packetevents</pattern>
-                                    <shadedPattern>dev.nyx.libs.packetevents.io.github.retrooper.packetevents</shadedPattern>
+                                    <shadedPattern>dev.idebugger.nyx.libs.packetevents.io.github.retrooper.packetevents</shadedPattern>
                                 </relocation>
                             </relocations>
                             <artifactSet>

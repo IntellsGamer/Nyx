@@ -1,6 +1,6 @@
 name: Nyx
 version: ${mc.version}+${nyx.version}
-main: dev.nyx.Nyx
+main: dev.idebugger.nyx.Nyx
 api-version: '1.21'
 description: Nyx — Nullify Your Xploits. A modern, high-performance, prediction-based anticheat.
 author: Intellix
