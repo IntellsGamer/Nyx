@@ -15,6 +15,7 @@ public class SpeedCheck extends Check {
 
     private static final long FIREWORK_GRACE_MS = 4000;
     private static final long GLIDE_GRACE_MS = 3000;
+    private static final long RIPTIDE_GRACE_MS = 4000;
 
     // Momentum picked up on ice legitimately carries further than the vanilla
     // caps allow while it fades out. The allowance already covers that coast, so
@@ -44,6 +45,7 @@ public class SpeedCheck extends Check {
         long now = System.currentTimeMillis();
         if (now - data.getLastFireworkTime() < FIREWORK_GRACE_MS) return;
         if (now - data.getLastGlideTime() < GLIDE_GRACE_MS) return;
+        if (now - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
 
         double speed = data.getHorizontalSpeed();
         if (speed < 0.01) return;
