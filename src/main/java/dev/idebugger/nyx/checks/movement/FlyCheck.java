@@ -25,6 +25,13 @@ public class FlyCheck extends Check {
     private static final long LIQUID_RECENCY_MS = 1500;
     private static final double LIQUID_BELOW_DISTANCE = 1.5;
 
+    // Powdered snow and cobwebs slow the player's motion (and let the client sink
+    // slowly through them for powdered snow), which looks identical to the hover
+    // / slow-fall signature this check hunts for. Skip while inside either block,
+    // and also while right next to them (within NEAR_BLOCKS) so the abrupt
+    // momentum changes while walking into/out of them never flag.
+    private static final int NEAR_BLOCKS = 2;
+
     // Riptide launches the player upward through the air/water; the boost is
     // legit but looks exactly like an ascend-hack, so skip the launch window.
     private static final long RIPTIDE_GRACE_MS = 4000;
@@ -53,7 +60,7 @@ public class FlyCheck extends Check {
         if (data.getPlayer().isFlying()) return;
         if (System.currentTimeMillis() - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
         if (data.isInWater() || data.isInLava()) return;
-        if (data.isInWeb()) return;
+        if (data.isInWeb() || data.isInPowderedSnow()) return;
         if (data.isClimbing()) return;
         if (data.getPlayer().hasPotionEffect(PotionEffectType.SLOW_FALLING)) return;
 
@@ -65,6 +72,10 @@ public class FlyCheck extends Check {
 
         Location loc = data.getPositionHistory().peekFirst().location();
         if (isNearOrAboveLiquid(loc)) return;
+
+        // Powdered snow / cobweb either below (sinking out of it) or within the
+        // 2-block reach: the client's vertical velocity is not trustworthy here.
+        if (isNearWebOrPowderedSnow(loc)) return;
 
         if (data.isOnGround()) return;
 
@@ -117,6 +128,30 @@ public class FlyCheck extends Check {
     private boolean isLiquid(Block block) {
         Material type = block.getType();
         return type == Material.WATER || type == Material.LAVA;
+    }
+
+    /**
+     * True when a powdered-snow or cobweb block is inside (or within a small
+     * radius of) the player's bounding box. Movement through these blocks applies
+     * unusual vertical drag that this check must not treat as flight.
+     */
+    private boolean isNearWebOrPowderedSnow(Location loc) {
+        World world = loc.getWorld();
+        int x = loc.getBlockX();
+        int y = (int) Math.floor(loc.getY());
+        int z = loc.getBlockZ();
+
+        for (int bx = x - NEAR_BLOCKS; bx <= x + NEAR_BLOCKS; bx++) {
+            for (int by = y - NEAR_BLOCKS; by <= y + NEAR_BLOCKS; by++) {
+                for (int bz = z - NEAR_BLOCKS; bz <= z + NEAR_BLOCKS; bz++) {
+                    Material type = world.getBlockAt(bx, by, bz).getType();
+                    if (type == Material.COBWEB || type == Material.POWDER_SNOW) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
 

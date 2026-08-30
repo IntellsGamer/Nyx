@@ -468,22 +468,27 @@ public final class PacketListener extends PacketListenerAbstract {
         }
         {
             boolean inWeb = false;
+            boolean inPowderedSnow = false;
             int minX = (int) Math.floor(toLocation.getX() - 0.3);
             int maxX = (int) Math.floor(toLocation.getX() + 0.3);
             int minY = (int) Math.floor(toLocation.getY());
             int maxY = (int) Math.floor(toLocation.getY() + 1.8);
             int minZ = (int) Math.floor(toLocation.getZ() - 0.3);
             int maxZ = (int) Math.floor(toLocation.getZ() + 0.3);
-            for (int bx = minX; bx <= maxX && !inWeb; bx++) {
-                for (int by = minY; by <= maxY && !inWeb; by++) {
-                    for (int bz = minZ; bz <= maxZ && !inWeb; bz++) {
-                        if (player.getWorld().getBlockAt(bx, by, bz).getType() == org.bukkit.Material.COBWEB) {
+            for (int bx = minX; bx <= maxX; bx++) {
+                for (int by = minY; by <= maxY; by++) {
+                    for (int bz = minZ; bz <= maxZ; bz++) {
+                        Material blockType = player.getWorld().getBlockAt(bx, by, bz).getType();
+                        if (blockType == org.bukkit.Material.COBWEB) {
                             inWeb = true;
+                        } else if (blockType == org.bukkit.Material.POWDER_SNOW) {
+                            inPowderedSnow = true;
                         }
                     }
                 }
             }
             data.setInWeb(inWeb);
+            data.setInPowderedSnow(inPowderedSnow);
         }
         data.setGliding(player.isGliding());
         data.setHandRaised(player.isHandRaised());

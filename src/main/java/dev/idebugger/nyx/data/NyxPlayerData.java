@@ -35,6 +35,7 @@ public final class NyxPlayerData {
     private boolean inWater;
     private boolean inLava;
     private boolean inWeb;
+    private boolean inPowderedSnow;
     private boolean onIce;
     private IceType iceType = IceType.NONE;
     private IceType lastIceType = IceType.NONE;
@@ -456,6 +457,8 @@ public final class NyxPlayerData {
     }
     public boolean isInWeb() { return inWeb; }
     public void setInWeb(boolean inWeb) { this.inWeb = inWeb; }
+    public boolean isInPowderedSnow() { return inPowderedSnow; }
+    public void setInPowderedSnow(boolean inPowderedSnow) { this.inPowderedSnow = inPowderedSnow; }
     public boolean isOnIce() { return onIce; }
     public void setOnIce(boolean onIce) { this.onIce = onIce; }
     public IceType getIceType() { return iceType; }
