@@ -7,6 +7,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.wrapper.play.client.*;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerHurtAnimation;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerWindowConfirmation;
 import dev.idebugger.nyx.Nyx;
@@ -349,12 +350,32 @@ public final class PacketListener extends PacketListenerAbstract {
             if (velocityPacket.getEntityId() == player.getEntityId()) {
                 NyxPlayerData data = plugin.getPlayerDataManager().getData(player);
                 if (data != null) {
+                    long now = System.currentTimeMillis();
+                    // A second knockback while one is still pending means a mob
+                    // volley: several hits that legitimately cancel each other
+                    // into almost no net motion. Remember it so the velocity
+                    // check forgives the whole window instead of flagging.
+                    boolean volley = data.hasServerVelocity();
                     var vec = velocityPacket.getVelocity();
                     data.recordServerVelocity(
                         new org.bukkit.util.Vector(vec.x, vec.y, vec.z),
-                        System.currentTimeMillis()
+                        now
                     );
-                    data.setLastVelocityTime(System.currentTimeMillis());
+                    data.setLastVelocityTime(now);
+                    if (volley) {
+                        data.setVelocityMultiHit(true);
+                        data.setLastVelocityMultiHitTime(now);
+                    }
+                }
+            }
+        }
+
+        if (packetType == PacketType.Play.Server.HURT_ANIMATION) {
+            WrapperPlayServerHurtAnimation hurt = new WrapperPlayServerHurtAnimation(event);
+            if (hurt.getEntityId() == player.getEntityId()) {
+                NyxPlayerData data = plugin.getPlayerDataManager().getData(player);
+                if (data != null) {
+                    data.setLastDamageTime(System.currentTimeMillis());
                 }
             }
         }

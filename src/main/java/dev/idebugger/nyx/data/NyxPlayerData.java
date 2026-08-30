@@ -99,6 +99,9 @@ public final class NyxPlayerData {
 
     private int ping;
     private long lastVelocityTime;
+    private long lastDamageTime;
+    private boolean velocityMultiHit;
+    private long lastVelocityMultiHitTime;
     private int serverAirTicks;
     private double serverFallDistance;
 
@@ -562,6 +565,12 @@ public final class NyxPlayerData {
     public void setPing(int ping) { this.ping = ping; }
     public long getLastVelocityTime() { return lastVelocityTime; }
     public void setLastVelocityTime(long lastVelocityTime) { this.lastVelocityTime = lastVelocityTime; }
+    public long getLastDamageTime() { return lastDamageTime; }
+    public void setLastDamageTime(long time) { this.lastDamageTime = time; }
+    public boolean isVelocityMultiHit() { return velocityMultiHit; }
+    public void setVelocityMultiHit(boolean multi) { this.velocityMultiHit = multi; }
+    public long getLastVelocityMultiHitTime() { return lastVelocityMultiHitTime; }
+    public void setLastVelocityMultiHitTime(long time) { this.lastVelocityMultiHitTime = time; }
     public ConcurrentLinkedDeque<MovementSnapshot> getPositionHistory() { return positionHistory; }
     public ConcurrentLinkedDeque<RotationSnapshot> getRotationHistory() { return rotationHistory; }
     public ConcurrentHashMap<String, Integer> getViolationMap() { return violations; }

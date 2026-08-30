@@ -36,6 +36,13 @@ public class VelocityCheck extends Check {
 
     private static final int MAX_BUFFER_TICKS = 12;
 
+    // A mob volley (2+ attackers within a tick) or any recent non-knockback
+    // damage (poison/wither/fall staggering the player after a punch) breaks the
+    // clean consumption curve. Those windows are forgiven entirely: the buffered
+    // expectations are dropped and the accumulator wiped so they cannot ladder VL.
+    private static final long MULTI_HIT_WINDOW_MS = 1500;
+    private static final long DAMAGE_RECENCY_MS = 1200;
+
     // Lenient on purpose: frictional ticks naturally eat less of the applied
     // velocity, so only a sustained majority of the 12-tick window flags. The
     // real deterrent is the knockback re-applied on every flag, not the count.
@@ -69,6 +76,20 @@ public class VelocityCheck extends Check {
         if (sv == null) return;
         if (data.isInVehicle()) return;
         if (data.isGliding() || data.isWasGliding()) return;
+
+        long now = System.currentTimeMillis();
+
+        // Mob volleys and damage staggers: the motion no longer follows any
+        // single buffered vector, so enforce nothing until the dust settles.
+        boolean messyWindow = (data.isVelocityMultiHit()
+            && now - data.getLastVelocityMultiHitTime() < MULTI_HIT_WINDOW_MS)
+            || (data.getLastDamageTime() > 0
+            && now - data.getLastDamageTime() < DAMAGE_RECENCY_MS);
+        if (messyWindow) {
+            data.resetVelocityBuffer(0.0);
+            data.clearServerVelocity();
+            return;
+        }
 
         Vector applied = sv.vector();
 

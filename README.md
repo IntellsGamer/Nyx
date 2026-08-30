@@ -10,7 +10,7 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 - **30+ checks** covering movement, combat, elytra, vehicle, scaffolding, and packet-level exploits.
 - **Fly-safe tuning** — elytra glide, firework boosts, riptide launches, and ice momentum are handled generously to avoid false flags.
 - **Per-check configuration** — thresholds, violation decay, max violations, sensitivity, and actions (`alert`, `setback`, `kick`, `ban`, custom commands) are all configurable in `config.yml`.
-- **Server-velocity buffering** — knockback is buffered and consumed over movement ticks, giving a far more reliable anti-knockback check and fewer false flags.
+- **Server-velocity buffering** — knockback is buffered and consumed over movement ticks, giving a far more reliable anti-knockback check and fewer false flags. Mob volleys (several attackers cancelling each other's knockback) and damage staggers (poison/wither/fall after a hit) are forgiven windows, so the check stays angry only at a single clean knockback that genuinely never happens.
 - **Surface-state awareness** — jesus (water-walking), boatfly, and `snowshoe` (walking on powder snow without leather boots) validate that a player's on-ground claim is actually possible on the block under their feet.
 - **Time-based bans** — bans are never permanent (default 3 days, configurable). Uses **LiteBans** automatically when installed, otherwise Bukkit's native ban list.
 - **Global VL persistence** — violation levels, bans, and setback/kick escalation counts are stored in a self-contained **SQLite** database, so cheaters cannot reset to zero by rejoining or by a server restart.
@@ -30,10 +30,10 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 
 | MC version | Module | Jar | Paper | PacketEvents |
 | --- | --- | --- | --- | --- |
-| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.1.10.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
-| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.1.10.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
-| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.1.10.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
-| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.1.10.jar` | `26.2.build.111-stable` | 2.13.0 |
+| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.1.11.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
+| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.1.11.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
+| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.1.11.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
+| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.1.11.jar` | `26.2.build.111-stable` | 2.13.0 |
 
 Each jar is a specialized build — the shared source is compiled against that version's Paper API and PacketEvents, so the packet listeners and checks are verified against the matching PacketEvents release. Ready-to-download binaries are also published to the [GitHub Releases](https://github.com/IntellsGamer/Nyx/releases) page (one release per Minecraft version).
 
@@ -154,7 +154,7 @@ mvn clean package
 mvn clean package -pl 1.21.6
 ```
 
-Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.10.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
+Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.11.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
 
 ## License
 
