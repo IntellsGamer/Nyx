@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.idebugger.nyx</groupId>
+        <artifactId>Nyx</artifactId>
+        <version>1.2.1</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>Nyx-1.21.4</artifactId>
+    <version>1.21.4</version>
+    <packaging>jar</packaging>
+
+    <name>Nyx 1.21.4</name>
+    <description>Nyx — Nullify Your Xploits. Specialized build for Paper 1.21.4 (PacketEvents 2.7.0).</description>
+
+    <properties>
+        <nyx.version>1.2.1</nyx.version>
+        <mc.version>1.21.4</mc.version>
+        <paper.version>1.21.4-R0.1-SNAPSHOT</paper.version>
+        <packetevents.version>2.7.0</packetevents.version>
+        <adventure.version>4.18.0</adventure.version>
+    </properties>
+</project>

@@ -23,13 +23,14 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 ## Requirements
 
 - **Java 21+** (the **26.2** build requires **Java 25**, as Paper 26.x ships Java 25 bytecode)
-- **Paper** 1.21.5, **1.21.6**, **1.21.11**, or **26.2** (or a matching Paper fork: Purpur, Folia, etc.) — each version ships a specialized jar pinned to the right Paper API + PacketEvents.
+- **Paper** 1.21.4, **1.21.5**, **1.21.6**, **1.21.11**, or **26.2** (or a matching Paper fork: Purpur, Folia, etc.) — each version ships a specialized jar pinned to the right Paper API + PacketEvents.
 - ProtocolLib, Geyser/Floodgate, ViaVersion and LiteBans are optional soft dependencies.
 
 ## Versions
 
 | MC version | Module | Jar | Paper | PacketEvents |
 | --- | --- | --- | --- | --- |
+| 1.21.4 | `1.21.4/` | `1.21.4/target/Nyx-1.21.4+1.2.1.jar` | `1.21.4-R0.1-SNAPSHOT` | 2.7.0 |
 | 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.2.1.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
 | 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.2.1.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
 | 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.2.1.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |

@@ -4,10 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       versions:
-        description: 'Space-separated Minecraft versions to publish (e.g. 1.21.5 1.21.6 1.21.11 26.2)'
+        description: 'Space-separated Minecraft versions to publish (e.g. 1.21.4 1.21.5 1.21.6 1.21.11 26.2)'
         required: false
-        default: '1.21.5 1.21.6 1.21.11 26.2'
-
+        default: '1.21.4 1.21.5 1.21.6 1.21.11 26.2'
 permissions:
   contents: write
 
@@ -39,6 +38,11 @@ jobs:
           echo "Plugin version: $NYX_VERSION"
 
           read -r -a vers <<< "${{ inputs.versions }}"
+          # Sort into canonical ascending MC order (numeric major.minor.patch). The
+          # highest version always ends up last and is therefore the one marked
+          # `--latest`, regardless of the order the input was typed in. E.g. 26.2
+          # (major 26) always sorts after every 1.21.x and stays the latest release.
+          mapfile -t vers < <(printf '%s\n' "${vers[@]}" | sort -t. -k1,1n -k2,2n -k3,3n)
           last=$(( ${#vers[@]} - 1 ))
           i=0
           for v in "${vers[@]}"; do
