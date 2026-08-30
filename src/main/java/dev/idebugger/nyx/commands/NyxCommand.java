@@ -8,6 +8,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -45,6 +46,7 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
             case "reload" -> handleReload(sender);
             case "setback" -> handleSetback(sender, args);
             case "ban" -> handleBan(sender, args);
+            case "unban" -> handleUnban(sender, args);
             case "exempt" -> handleExempt(sender, args);
             case "gui" -> handleGUI(sender);
             default -> sendHelp(sender);
@@ -66,6 +68,8 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
             .append(Component.text(" — Setback a player", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/nyx ban <player> [duration] [reason...]", NamedTextColor.GOLD)
             .append(Component.text(" — Ban a player", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("/nyx unban <player>", NamedTextColor.GOLD)
+            .append(Component.text(" — Unban a player (clears Nyx records)", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/nyx exempt <player>", NamedTextColor.GOLD)
             .append(Component.text(" — Toggle exemption", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/nyx gui", NamedTextColor.GOLD)
@@ -210,6 +214,34 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(legacy.deserialize(success));
     }
 
+    private void handleUnban(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nyx.unban")) {
+            sender.sendMessage(legacy.deserialize(plugin.getNyxConfig().getMessage("commands.no-permission")));
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(Component.text("Usage: /nyx unban <player>", NamedTextColor.RED));
+            return;
+        }
+
+        String name = args[1];
+        boolean unbanned;
+        var banManager = plugin.getBanManager();
+        if (banManager != null) {
+            unbanned = banManager.unban(name);
+        } else {
+            BanList banList = Bukkit.getBanList(BanList.Type.NAME);
+            unbanned = banList.isBanned(name);
+            banList.pardon(name);
+        }
+
+        String msg = unbanned
+            ? plugin.getNyxConfig().getMessage("commands.unban.success", "player", name)
+            : plugin.getNyxConfig().getMessage("commands.unban.no-ban", "player", name);
+        sender.sendMessage(legacy.deserialize(msg));
+    }
+
     private void handleExempt(CommandSender sender, String[] args) {
         if (!sender.hasPermission("nyx.exempt")) {
             sender.sendMessage(legacy.deserialize(plugin.getNyxConfig().getMessage("commands.no-permission")));
@@ -258,7 +290,7 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            return List.of("alerts", "check", "reload", "setback", "ban", "exempt", "gui").stream()
+            return List.of("alerts", "check", "reload", "setback", "ban", "unban", "exempt", "gui").stream()
                 .filter(s -> s.startsWith(args[0].toLowerCase()))
                 .collect(Collectors.toList());
         }
@@ -270,6 +302,19 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
             return Bukkit.getOnlinePlayers().stream()
                 .map(Player::getName)
                 .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                .collect(Collectors.toList());
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("unban")) {
+            List<String> names = new ArrayList<>();
+            var banManager = plugin.getBanManager();
+            if (banManager != null) {
+                names.addAll(banManager.getBannedNames());
+            }
+            Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(names::add);
+            return names.stream()
+                .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                .distinct()
                 .collect(Collectors.toList());
         }
 

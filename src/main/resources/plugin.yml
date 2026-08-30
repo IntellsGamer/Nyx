@@ -20,7 +20,7 @@ commands:
   nyx:
     description: Main Nyx anticheat command
     aliases: [ac, anticheat]
-    usage: /<command> [alerts|check|reload|setback|exempt|gui]
+    usage: /<command> [alerts|check|reload|setback|ban|unban|exempt|gui]
 
 permissions:
   nyx.admin:
@@ -31,6 +31,7 @@ permissions:
       nyx.reload: true
       nyx.setback: true
       nyx.ban: true
+      nyx.unban: true
       nyx.exempt: true
       nyx.notify: true
       nyx.bypass.*: true
@@ -49,6 +50,10 @@ permissions:
 
   nyx.ban:
     description: Ban a player via /nyx ban
+    default: op
+
+  nyx.unban:
+    description: Unban a player via /nyx unban
     default: op
 
   nyx.exempt:

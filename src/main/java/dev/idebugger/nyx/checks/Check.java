@@ -112,12 +112,14 @@ public abstract class Check {
                     int count = actionType.equals("setback")
                         ? data.incrementSetbackCount(configKey)
                         : data.incrementKickCount(configKey);
+                    persistEscalationCounts(data);
                     if (count >= escalateToBan) {
                         if (actionType.equals("setback")) {
                             data.resetSetbackCount(configKey);
                         } else {
                             data.resetKickCount(configKey);
                         }
+                        persistEscalationCounts(data);
                         plugin.getPunishmentManager().execute("ban", data.getPlayer(), this, vl);
                     } else {
                         plugin.getPunishmentManager().execute(actionType, data.getPlayer(), this, vl);
@@ -140,5 +142,17 @@ public abstract class Check {
         } else {
             handle(data);
         }
+    }
+
+    /**
+     * Mirrors this player/check's setback+kick escalation counts into SQLite so
+     * they survive a rejoin. Without this a kicked player reconnects with a fresh
+     * session (counts back at zero) and the kicks-to-ban floor is never reached.
+     */
+    private void persistEscalationCounts(NyxPlayerData data) {
+        var storage = plugin.getStorageManager();
+        if (storage == null) return;
+        storage.setEscalation(data.getUuid(), configKey,
+            data.getSetbackCount(configKey), data.getKickCount(configKey));
     }
 }

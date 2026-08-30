@@ -31,6 +31,11 @@ commands:
     fail: "§cFailed to ban <player>."
     default-reason: "§c§l[Nyx]§r §fBanned by an administrator."
 
+  unban:
+    success: "§aUnbanned <player>."
+    no-ban: "§e<player> is not banned."
+    fail: "§cFailed to unban <player>."
+
   exempt:
     added: "§a<player> is now exempt from all checks."
     removed: "§e<player> is no longer exempt."

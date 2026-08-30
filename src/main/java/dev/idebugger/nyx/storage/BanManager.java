@@ -168,4 +168,58 @@ public final class BanManager {
         if (seconds % 60L == 0) return (seconds / 60L) + "m";
         return seconds + "s";
     }
+
+    /**
+     * Unbans a player (by name), removing every trace Nyx keeps:
+     * <ol>
+     *   <li>the persistent SQLite ban record — otherwise {@link #applyPersistentBan}
+     *       would re-ban them the moment they rejoin (this is why plain
+     *       {@code /pardon} alone does not work);</li>
+     *   <li>the accumulated setback/kick escalation counts;</li>
+     *   <li>any native Bukkit ban-list entry; and</li>
+     *   <li>the LiteBans ban (via the configured console command).</li>
+     * </ol>
+     *
+     * @return true if any record/entry actually existed and was removed.
+     */
+    public boolean unban(String name) {
+        if (name == null || name.isBlank()) return false;
+        boolean removed = false;
+
+        BanRecord ban = storage.getBanByName(name);
+        if (ban != null) {
+            UUID uuid = ban.playerUuid();
+            storage.clearBan(uuid);
+            storage.clearEscalation(uuid);
+            removed = true;
+        }
+
+        if (Bukkit.getBanList(BanList.Type.NAME).isBanned(name)) {
+            Bukkit.getBanList(BanList.Type.NAME).pardon(name);
+            removed = true;
+        }
+
+        if (liteBansAvailable) {
+            String cmd = plugin.getNyxConfig().getUnbanCommand()
+                .replace("%player%", name);
+            cmd = cmd.trim();
+            if (!cmd.isEmpty() && cmd.startsWith("/")) {
+                cmd = cmd.substring(1);
+            }
+            if (!cmd.isEmpty()) {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
+                removed = true;
+            }
+        }
+
+        if (removed) {
+            plugin.getLogger().info("[Nyx] Unbanned " + name + ".");
+        }
+        return removed;
+    }
+
+    /** Names of all currently-banned players, for tab completion. */
+    public java.util.List<String> getBannedNames() {
+        return storage.getBannedNames();
+    }
 }

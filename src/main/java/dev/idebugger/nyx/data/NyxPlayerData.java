@@ -494,6 +494,15 @@ public final class NyxPlayerData {
         setbackCounts.remove(check);
     }
 
+    /** Restores persisted setback/kick counts after a reconnect (e.g. post-kick). */
+    public void restoreEscalation(String check, int setbacks, int kicks) {
+        if (setbacks > 0) setbackCounts.put(check, setbacks);
+        if (kicks > 0) kickCounts.put(check, kicks);
+    }
+
+    public ConcurrentHashMap<String, Integer> getSetbackCountMap() { return setbackCounts; }
+    public ConcurrentHashMap<String, Integer> getKickCountMap() { return kickCounts; }
+
     public int incrementKickCount(String check) {
         return kickCounts.merge(check, 1, Integer::sum);
     }

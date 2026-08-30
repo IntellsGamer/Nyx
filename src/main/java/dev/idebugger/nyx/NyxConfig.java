@@ -29,6 +29,7 @@ public final class NyxConfig {
     private String banCommand;
     private String banDuration;
     private String banReason;
+    private String unbanCommand;
     private boolean autobanEnabled;
     private boolean persistGlobally;
 
@@ -72,6 +73,7 @@ public final class NyxConfig {
         this.banCommand = config.getString("punishment.ban.litebans-command", "litebans:ban %player% %time% %reason%");
         this.banDuration = config.getString("punishment.ban.duration", "3d");
         this.banReason = config.getString("punishment.ban.reason", "§c[Nyx] §fUnfair Advantage §7(%check%)");
+        this.unbanCommand = config.getString("punishment.ban.litebans-unban-command", "litebans:unban %player%");
         this.autobanEnabled = config.getBoolean("punishment.ban.autoban-enabled", true);
         this.persistGlobally = config.getBoolean("storage.persist-global-violations", true);
 
@@ -260,6 +262,7 @@ public final class NyxConfig {
     public String getBanCommand() { return banCommand; }
     public String getBanDuration() { return banDuration; }
     public String getBanReason() { return banReason; }
+    public String getUnbanCommand() { return unbanCommand; }
     public boolean isAutobanEnabled() { return autobanEnabled; }
     public boolean isPersistGlobally() { return persistGlobally; }
 

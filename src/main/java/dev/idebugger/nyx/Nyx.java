@@ -127,6 +127,7 @@ public final class Nyx extends JavaPlugin implements Listener {
         NyxPlayerData data = playerDataManager.createData(player);
         if (storageManager != null) {
             seedPersistentViolations(data);
+            seedPersistentEscalation(data);
             if (banManager != null) {
                 banManager.applyPersistentBan(player);
             }
@@ -165,25 +166,43 @@ public final class Nyx extends JavaPlugin implements Listener {
         storageManager.getViolations(data.getUuid()).forEach(data::setViolationFromStorage);
     }
 
+    private void seedPersistentEscalation(NyxPlayerData data) {
+        if (storageManager == null) return;
+        storageManager.getEscalationCounts(data.getUuid())
+            .forEach((check, counts) -> data.restoreEscalation(check, counts.setbacks(), counts.kicks()));
+    }
+
     private void persistPlayerViolations(UUID uuid) {
         if (storageManager == null) return;
         NyxPlayerData data = playerDataManager.getData(uuid);
         if (data == null) return;
+        persistViolations(data);
+        persistEscalationCounts(data);
+    }
+
+    private void persistViolations(NyxPlayerData data) {
         data.getViolationMap().forEach((check, vl) -> {
             if (vl > 0) {
-                storageManager.setViolation(uuid, check, vl);
+                storageManager.setViolation(data.getUuid(), check, vl);
             }
         });
+    }
+
+    private void persistEscalationCounts(NyxPlayerData data) {
+        java.util.Set<String> checks = new java.util.HashSet<>();
+        checks.addAll(data.getSetbackCountMap().keySet());
+        checks.addAll(data.getKickCountMap().keySet());
+        for (String check : checks) {
+            storageManager.setEscalation(data.getUuid(), check,
+                data.getSetbackCount(check), data.getKickCount(check));
+        }
     }
 
     private void persistAllViolations() {
         if (storageManager == null) return;
         playerDataManager.getAllData().forEach((uuid, data) -> {
-            data.getViolationMap().forEach((check, vl) -> {
-                if (vl > 0) {
-                    storageManager.setViolation(uuid, check, vl);
-                }
-            });
+            persistViolations(data);
+            persistEscalationCounts(data);
         });
     }
 }

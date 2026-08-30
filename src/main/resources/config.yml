@@ -590,6 +590,9 @@ punishment:
     # If LiteBans is installed Nyx uses this console command. Placeholders:
     #   %player% %check% %reason% %time%  (%time% = the parsed duration, e.g. "7d")
     litebans-command: "litebans:ban %player% %time% %reason%"
+    # If LiteBans is installed Nyx uses this console command to unban
+    # (used by /nyx unban). Placeholders: %player%
+    litebans-unban-command: "litebans:unban %player%"
 
 storage:
   # Persist global violation levels across reconnects and server restarts

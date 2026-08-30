@@ -10,7 +10,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
@@ -73,6 +75,15 @@ public final class StorageManager {
                     expires_at  INTEGER NOT NULL
                 )
                 """);
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS escalation (
+                    player_uuid TEXT NOT NULL,
+                    check_name  TEXT NOT NULL,
+                    setbacks    INTEGER NOT NULL DEFAULT 0,
+                    kicks       INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (player_uuid, check_name)
+                )
+                """);
         } finally {
             lock.unlock();
         }
@@ -127,6 +138,7 @@ public final class StorageManager {
         } finally {
             lock.unlock();
         }
+        clearEscalation(uuid);
     }
 
     public void recordBan(BanRecord ban) {
@@ -190,6 +202,124 @@ public final class StorageManager {
             ps.executeUpdate();
         } catch (SQLException e) {
             plugin.getLogger().severe("Storage: failed to clear ban: " + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** Looks up an active ban by the player's (case-insensitive) name. */
+    public BanRecord getBanByName(String name) {
+        lock.lock();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT player_uuid, player_name, check_name, reason, banned_at, expires_at FROM bans WHERE lower(player_name) = lower(?)")) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    BanRecord ban = new BanRecord(
+                        UUID.fromString(rs.getString("player_uuid")),
+                        rs.getString("player_name"),
+                        rs.getString("check_name"),
+                        rs.getString("reason"),
+                        rs.getLong("banned_at"),
+                        rs.getLong("expires_at")
+                    );
+                    if (ban.isActive()) {
+                        return ban;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Storage: failed to read ban by name: " + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+        return null;
+    }
+
+    /** Returns the names of all currently-active ban records. */
+    public List<String> getBannedNames() {
+        List<String> out = new ArrayList<>();
+        lock.lock();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT player_name FROM bans WHERE expires_at > ?")) {
+            ps.setLong(1, System.currentTimeMillis());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(rs.getString("player_name"));
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Storage: failed to read banned names: " + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+        return out;
+    }
+
+    /** Per-check escalation counters (setback / kick counts) for a player. */
+    public record EscalationCounts(int setbacks, int kicks) {}
+
+    public Map<String, EscalationCounts> getEscalationCounts(UUID uuid) {
+        Map<String, EscalationCounts> out = new HashMap<>();
+        lock.lock();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT check_name, setbacks, kicks FROM escalation WHERE player_uuid = ?")) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.put(rs.getString("check_name"), new EscalationCounts(
+                        rs.getInt("setbacks"), rs.getInt("kicks")));
+                }
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Storage: failed to read escalation counts: " + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+        return out;
+    }
+
+    public void setEscalation(UUID uuid, String check, int setbacks, int kicks) {
+        lock.lock();
+        try (PreparedStatement ps = connection.prepareStatement("""
+                INSERT INTO escalation (player_uuid, check_name, setbacks, kicks)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(player_uuid, check_name)
+                DO UPDATE SET setbacks = excluded.setbacks, kicks = excluded.kicks
+                """)) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, check);
+            ps.setInt(3, setbacks);
+            ps.setInt(4, kicks);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Storage: failed to write escalation counts: " + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void clearEscalation(UUID uuid) {
+        lock.lock();
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM escalation WHERE player_uuid = ?")) {
+            ps.setString(1, uuid.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Storage: failed to clear escalation counts: " + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void clearEscalation(UUID uuid, String check) {
+        lock.lock();
+        try (PreparedStatement ps = connection.prepareStatement(
+                "DELETE FROM escalation WHERE player_uuid = ? AND check_name = ?")) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, check);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Storage: failed to clear escalation count: " + e.getMessage());
         } finally {
             lock.unlock();
         }
