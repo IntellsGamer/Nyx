@@ -78,6 +78,7 @@ public abstract class Check {
     public void flag(NyxPlayerData data, String info) {
         if (data == null) return;
 
+        int prevVl = data.getViolations(configKey);
         data.addViolation(configKey);
         int vl = data.getViolations(configKey);
 
@@ -98,7 +99,11 @@ public abstract class Check {
             String actionType = parts[0].trim().toLowerCase();
             int atVl = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : Integer.MAX_VALUE;
 
-            if (vl == atVl) {
+            // Fire on the upward crossing of the threshold only (prevVl < atVl <= vl).
+            // Matching on exact equality re-triggers endlessly when violation decay
+            // makes the value hover around the threshold, inflating the escalation
+            // counts and delaying the setback-to-ban / kick-to-ban floors.
+            if (prevVl < atVl && vl >= atVl) {
                 // Repeated setbacks OR kicks on the SAME check signal someone
                 // persistently fighting the anticheat. After the per-check
                 // threshold we escalate the punishment into a time-based ban
@@ -114,11 +119,10 @@ public abstract class Check {
                         : data.incrementKickCount(configKey);
                     persistEscalationCounts(data);
                     if (count >= escalateToBan) {
-                        if (actionType.equals("setback")) {
-                            data.resetSetbackCount(configKey);
-                        } else {
-                            data.resetKickCount(configKey);
-                        }
+                        // A ban resets both floors so a released offender starts
+                        // clean; escalation restarts fresh on the next offence.
+                        data.resetSetbackCount(configKey);
+                        data.resetKickCount(configKey);
                         persistEscalationCounts(data);
                         plugin.getPunishmentManager().execute("ban", data.getPlayer(), this, vl);
                     } else {

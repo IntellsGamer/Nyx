@@ -275,17 +275,11 @@ public final class NyxPlayerData {
             int newVl = vl - decay;
             return Math.max(newVl, 0);
         });
-        // Setback/kick counts decay each second so they only flag a player who
-        // racks up N setbacks/kicks within a short window (repeat offender), not
-        // someone whose single event was caused by a brief lag spike.
-        if (!setbackCounts.isEmpty()) {
-            setbackCounts.replaceAll((check, c) -> Math.max(c - 1, 0));
-            setbackCounts.entrySet().removeIf(e -> e.getValue() <= 0);
-        }
-        if (!kickCounts.isEmpty()) {
-            kickCounts.replaceAll((check, c) -> Math.max(c - 1, 0));
-            kickCounts.entrySet().removeIf(e -> e.getValue() <= 0);
-        }
+        // Setback/kick counts are lifetime escalators and never decay. They are
+        // mirrored to SQLite (persistEscalationCounts) so a player cannot reset
+        // their punishment floor by briefly logging out; the third kick / fifth
+        // setback always triggers the ban regardless of how much time passed
+        // between offences.
     }
 
     public void addViolation(String check) {
