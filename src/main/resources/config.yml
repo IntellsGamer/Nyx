@@ -105,7 +105,7 @@ checks:
     enabled: true
     description: "Detects horizontal/vertical speed above vanilla limits"
     autoban: true
-    setbacks-to-ban: 6
+    setbacks-to-ban: 8
     kicks-to-ban: 3
     threshold: 10
     decay: 2
@@ -121,8 +121,8 @@ checks:
     enabled: true
     description: "Detects flight, air-jump, hover, and vertical-speed cheats"
     autoban: true
-    setbacks-to-ban: 5
-    kicks-to-ban: 3
+    setbacks-to-ban: 6
+    kicks-to-ban: 2
     threshold: 10
     decay: 2
     max-violations: 40
@@ -195,7 +195,7 @@ checks:
     enabled: true
     description: "Detects walking on top of powder snow without leather boots"
     autoban: true
-    setbacks-to-ban: 5
+    setbacks-to-ban: 4
     kicks-to-ban: 3
     threshold: 8
     decay: 3
@@ -204,13 +204,13 @@ checks:
     actions:
       - "alert"
       - "setback @ 10"
-      - "kick @ 24"
+      - "kick @ 20"
 
   boatfly:
     enabled: true
     description: "Detects flying or speed-hacking with boats"
     autoban: true
-    setbacks-to-ban: 8
+    setbacks-to-ban: 6
     kicks-to-ban: 5
     threshold: 5
     decay: 2
