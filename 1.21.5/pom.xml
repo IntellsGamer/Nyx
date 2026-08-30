@@ -7,7 +7,7 @@
     <parent>
         <groupId>dev.idebugger.nyx</groupId>
         <artifactId>Nyx</artifactId>
-        <version>1.1.7</version>
+        <version>1.1.8</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -19,7 +19,7 @@
     <description>Nyx — Nullify Your Xploits. Specialized build for Paper 1.21.5 (PacketEvents 2.8.0).</description>
 
     <properties>
-        <nyx.version>1.1.7</nyx.version>
+        <nyx.version>1.1.8</nyx.version>
         <mc.version>1.21.5</mc.version>
         <paper.version>1.21.5-R0.1-SNAPSHOT</paper.version>
         <packetevents.version>2.8.0</packetevents.version>
