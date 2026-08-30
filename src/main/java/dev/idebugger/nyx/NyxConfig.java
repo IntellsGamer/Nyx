@@ -29,6 +29,7 @@ public final class NyxConfig {
     private String banCommand;
     private String banDuration;
     private String banReason;
+    private boolean autobanEnabled;
     private boolean persistGlobally;
 
     private final Map<String, CheckConfig> checkConfigs = new LinkedHashMap<>();
@@ -71,6 +72,7 @@ public final class NyxConfig {
         this.banCommand = config.getString("punishment.ban.litebans-command", "litebans:ban %player% %time% %reason%");
         this.banDuration = config.getString("punishment.ban.duration", "3d");
         this.banReason = config.getString("punishment.ban.reason", "§c[Nyx] §fUnfair Advantage §7(%check%)");
+        this.autobanEnabled = config.getBoolean("punishment.ban.autoban-enabled", true);
         this.persistGlobally = config.getBoolean("storage.persist-global-violations", true);
 
         loadCheckConfigs();
@@ -145,6 +147,58 @@ public final class NyxConfig {
         Map.entry("scaffold", List.of("alert", "kick @ 20"))
     );
 
+    private static final Map<String, Integer> DEFAULT_SETBACKS_TO_BAN = Map.ofEntries(
+        // Generous by default — setback spam is the least damning signal and is
+        // prone to false positives from lag, so it takes many setbacks to ban.
+        Map.entry("phase", 3),
+        Map.entry("selfinteract", 3),
+        Map.entry("reach", 4),
+        Map.entry("fly", 5),
+        Map.entry("jesus", 5),
+        Map.entry("web", 4),
+        Map.entry("extraelytra", 4),
+        Map.entry("speed", 6),
+        Map.entry("velocity", 5),
+        Map.entry("inventorymove", 6),
+        Map.entry("nofall", 8),
+        Map.entry("boatfly", 8)
+    );
+
+    // Less mercy than setbacks: getting kicked already means repeated, high-VL
+    // cheating, so far fewer kicks are needed before a ban.
+    private static final Map<String, Integer> DEFAULT_KICKS_TO_BAN = Map.ofEntries(
+        Map.entry("phase", 2),
+        Map.entry("selfinteract", 2),
+        Map.entry("reach", 3),
+        Map.entry("fly", 3),
+        Map.entry("jesus", 3),
+        Map.entry("web", 3),
+        Map.entry("extraelytra", 2),
+        Map.entry("speed", 3),
+        Map.entry("velocity", 3),
+        Map.entry("inventorymove", 4),
+        Map.entry("nofall", 5),
+        Map.entry("boatfly", 5),
+        Map.entry("timer", 3),
+        Map.entry("killaura", 3),
+        Map.entry("aimassist", 3),
+        Map.entry("autoclicker", 3),
+        Map.entry("hitbox", 3),
+        Map.entry("multiinteract", 3),
+        Map.entry("noswing", 4),
+        Map.entry("aimmodulo360", 3),
+        Map.entry("attackwhileusing", 3),
+        Map.entry("entityspeed", 3)
+    );
+
+    private static int defaultSetbacksToBan(String check) {
+        return DEFAULT_SETBACKS_TO_BAN.getOrDefault(check, 5);
+    }
+
+    private static int defaultKicksToBan(String check) {
+        return DEFAULT_KICKS_TO_BAN.getOrDefault(check, 3);
+    }
+
     private void loadCheckConfigs() {
         checkConfigs.clear();
         ConfigurationSection checksSection = config.getConfigurationSection("checks");
@@ -166,11 +220,14 @@ public final class NyxConfig {
 
             CheckConfig cc = new CheckConfig(
                 section.getBoolean("enabled", true),
+                section.getBoolean("autoban", true),
                 section.getInt("threshold", 10),
                 section.getInt("decay", 1),
                 section.getInt("max-violations", 30),
                 section.getDouble("sensitivity", 0.7),
-                actions
+                actions,
+                section.getInt("setbacks-to-ban", defaultSetbacksToBan(checkName)),
+                section.getInt("kicks-to-ban", defaultKicksToBan(checkName))
             );
             checkConfigs.put(checkName, cc);
         }
@@ -203,6 +260,7 @@ public final class NyxConfig {
     public String getBanCommand() { return banCommand; }
     public String getBanDuration() { return banDuration; }
     public String getBanReason() { return banReason; }
+    public boolean isAutobanEnabled() { return autobanEnabled; }
     public boolean isPersistGlobally() { return persistGlobally; }
 
     /**
@@ -210,8 +268,16 @@ public final class NyxConfig {
      * milliseconds. Returns 0 if the format is invalid.
      */
     public long getBanDurationMs() {
-        if (banDuration == null || banDuration.isBlank()) return 0;
-        String s = banDuration.trim().toLowerCase();
+        return parseDuration(banDuration);
+    }
+
+    /**
+     * Parses a duration string like "3d", "30m", "12h", "2w", "45s" into
+     * milliseconds. Returns 0 if the format is invalid.
+     */
+    public static long parseDuration(String duration) {
+        if (duration == null || duration.isBlank()) return 0;
+        String s = duration.trim().toLowerCase();
         int i = 0;
         while (i < s.length() && Character.isDigit(s.charAt(i))) i++;
         if (i == 0 || i >= s.length()) return 0;
@@ -246,10 +312,13 @@ public final class NyxConfig {
 
     public record CheckConfig(
         boolean enabled,
+        boolean autoban,
         int threshold,
         int decay,
         int maxViolations,
         double sensitivity,
-        List<String> actions
+        List<String> actions,
+        int setbacksToBan,
+        int kicksToBan
     ) {}
 }

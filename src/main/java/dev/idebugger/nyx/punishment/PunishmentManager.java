@@ -111,24 +111,38 @@ public final class PunishmentManager {
     }
 
     private void ban(Player player, Check check) {
+        long durationMs = plugin.getNyxConfig().getBanDurationMs();
+        if (durationMs <= 0) {
+            durationMs = 3L * 24 * 60 * 60 * 1000;
+        }
+        String reason = plugin.getNyxConfig().getBanReason()
+            .replace("%check%", check.getName());
+        nativeBan(check.getName(), reason, durationMs, player);
+    }
+
+    /** Manual ban via /nyx ban, with native fallback when persistence is off. */
+    public void ban(Player player, String source, String reason, long durationMs) {
+        var banManager = plugin.getBanManager();
+        if (banManager != null) {
+            banManager.ban(player, source, reason, durationMs);
+        } else {
+            nativeBan(source, reason, durationMs, player);
+        }
+    }
+
+    private void nativeBan(String source, String reason, long durationMs, Player player) {
+        final long effectiveMs = durationMs <= 0 ? 3L * 24 * 60 * 60 * 1000 : durationMs;
         plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
-            if (!player.isOnline()) return;
+            if (player == null || !player.isOnline()) return;
             String banMsg = plugin.getNyxConfig().getMessage("punishment.ban");
             player.kick(legacy.deserialize(banMsg));
 
-            // Time-based native Bukkit ban (never permanent). Duration is
-            // configurable; defaults to 3 days if misconfigured.
-            long durationMs = plugin.getNyxConfig().getBanDurationMs();
-            if (durationMs <= 0) {
-                durationMs = 3L * 24 * 60 * 60 * 1000;
-            }
-            String reason = plugin.getNyxConfig().getBanReason()
-                .replace("%check%", check.getName());
-            Date expiry = new Date(System.currentTimeMillis() + durationMs);
-            String source = "Nyx (" + check.getName() + ")";
-            Bukkit.getBanList(BanList.Type.NAME).addBan(player.getName(), reason, expiry, source);
+            // Time-based native Bukkit ban (never permanent). Falls back to 3 days
+            // if the configured duration is invalid.
+            Date expiry = new Date(System.currentTimeMillis() + effectiveMs);
+            Bukkit.getBanList(BanList.Type.NAME).addBan(player.getName(), reason, expiry, "Nyx (" + source + ")");
 
-            broadcastPunishment("punishment.broadcast", player.getName(), check.getName());
+            broadcastPunishment("punishment.broadcast", player.getName(), source);
         });
     }
 }

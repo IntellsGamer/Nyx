@@ -91,6 +91,7 @@ public abstract class Check {
             data.setAlerted(true);
         }
 
+        boolean autobanActive = plugin.getNyxConfig().isAutobanEnabled() && config.autoban();
         List<String> actions = config.actions();
         for (String action : actions) {
             String[] parts = action.split(" @ ");
@@ -98,7 +99,35 @@ public abstract class Check {
             int atVl = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : Integer.MAX_VALUE;
 
             if (vl == atVl) {
-                plugin.getPunishmentManager().execute(actionType, data.getPlayer(), this, vl);
+                // Repeated setbacks OR kicks on the SAME check signal someone
+                // persistently fighting the anticheat. After the per-check
+                // threshold we escalate the punishment into a time-based ban
+                // instead of repeating the setback/kick. 0 disables that route.
+                int escalateToBan = autobanActive ? switch (actionType) {
+                    case "setback" -> config.setbacksToBan();
+                    case "kick" -> config.kicksToBan();
+                    default -> 0;
+                } : 0;
+                if (escalateToBan > 0) {
+                    int count = actionType.equals("setback")
+                        ? data.incrementSetbackCount(configKey)
+                        : data.incrementKickCount(configKey);
+                    if (count >= escalateToBan) {
+                        if (actionType.equals("setback")) {
+                            data.resetSetbackCount(configKey);
+                        } else {
+                            data.resetKickCount(configKey);
+                        }
+                        plugin.getPunishmentManager().execute("ban", data.getPlayer(), this, vl);
+                    } else {
+                        plugin.getPunishmentManager().execute(actionType, data.getPlayer(), this, vl);
+                    }
+                } else if (!autobanActive && actionType.equals("ban")) {
+                    // Auto-ban disabled (globally or for this check): skip the
+                    // high-VL auto-ban action entirely. Manual /nyx ban is unaffected.
+                } else {
+                    plugin.getPunishmentManager().execute(actionType, data.getPlayer(), this, vl);
+                }
             }
         }
     }

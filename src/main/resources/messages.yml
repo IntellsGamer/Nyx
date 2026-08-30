@@ -26,6 +26,11 @@ commands:
     success: "§eSetback <player>."
     fail: "§cFailed to setback <player>."
 
+  ban:
+    success: "§aBanned <player> §7(<duration>): §f<reason>"
+    fail: "§cFailed to ban <player>."
+    default-reason: "§c§l[Nyx]§r §fBanned by an administrator."
+
   exempt:
     added: "§a<player> is now exempt from all checks."
     removed: "§e<player> is no longer exempt."

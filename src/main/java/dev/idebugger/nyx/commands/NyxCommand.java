@@ -1,7 +1,9 @@
 package dev.idebugger.nyx.commands;
 
 import dev.idebugger.nyx.Nyx;
+import dev.idebugger.nyx.NyxConfig;
 import dev.idebugger.nyx.data.NyxPlayerData;
+import dev.idebugger.nyx.storage.BanManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -42,6 +44,7 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
             case "check" -> handleCheck(sender, args);
             case "reload" -> handleReload(sender);
             case "setback" -> handleSetback(sender, args);
+            case "ban" -> handleBan(sender, args);
             case "exempt" -> handleExempt(sender, args);
             case "gui" -> handleGUI(sender);
             default -> sendHelp(sender);
@@ -61,6 +64,8 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
             .append(Component.text(" — Reload config", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/nyx setback <player>", NamedTextColor.GOLD)
             .append(Component.text(" — Setback a player", NamedTextColor.GRAY)));
+        sender.sendMessage(Component.text("/nyx ban <player> [duration] [reason...]", NamedTextColor.GOLD)
+            .append(Component.text(" — Ban a player", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/nyx exempt <player>", NamedTextColor.GOLD)
             .append(Component.text(" — Toggle exemption", NamedTextColor.GRAY)));
         sender.sendMessage(Component.text("/nyx gui", NamedTextColor.GOLD)
@@ -162,6 +167,49 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(legacy.deserialize(msg));
     }
 
+    private void handleBan(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nyx.ban")) {
+            sender.sendMessage(legacy.deserialize(plugin.getNyxConfig().getMessage("commands.no-permission")));
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(Component.text("Usage: /nyx ban <player> [duration] [reason...]", NamedTextColor.RED));
+            return;
+        }
+
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage(legacy.deserialize(plugin.getNyxConfig().getMessage("commands.invalid-player")));
+            return;
+        }
+
+        long durationMs = plugin.getNyxConfig().getBanDurationMs();
+        int reasonStart = 2;
+        if (args.length > 2) {
+            long parsed = NyxConfig.parseDuration(args[2]);
+            if (parsed > 0) {
+                durationMs = parsed;
+                reasonStart = 3;
+            }
+        }
+        if (durationMs <= 0) {
+            durationMs = 3L * 24 * 60 * 60 * 1000;
+        }
+
+        String reason = reasonStart < args.length
+            ? String.join(" ", Arrays.copyOfRange(args, reasonStart, args.length))
+            : plugin.getNyxConfig().getMessage("commands.ban.default-reason");
+
+        plugin.getPunishmentManager().ban(target, "manual", reason, durationMs);
+
+        String success = plugin.getNyxConfig().getMessage("commands.ban.success",
+            "player", target.getName(),
+            "duration", BanManager.formatDuration(durationMs),
+            "reason", reason);
+        sender.sendMessage(legacy.deserialize(success));
+    }
+
     private void handleExempt(CommandSender sender, String[] args) {
         if (!sender.hasPermission("nyx.exempt")) {
             sender.sendMessage(legacy.deserialize(plugin.getNyxConfig().getMessage("commands.no-permission")));
@@ -210,13 +258,14 @@ public final class NyxCommand implements CommandExecutor, TabCompleter {
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            return List.of("alerts", "check", "reload", "setback", "exempt", "gui").stream()
+            return List.of("alerts", "check", "reload", "setback", "ban", "exempt", "gui").stream()
                 .filter(s -> s.startsWith(args[0].toLowerCase()))
                 .collect(Collectors.toList());
         }
 
         if (args.length == 2 && (args[0].equalsIgnoreCase("check")
             || args[0].equalsIgnoreCase("setback")
+            || args[0].equalsIgnoreCase("ban")
             || args[0].equalsIgnoreCase("exempt"))) {
             return Bukkit.getOnlinePlayers().stream()
                 .map(Player::getName)

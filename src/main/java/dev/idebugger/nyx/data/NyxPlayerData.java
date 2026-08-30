@@ -20,6 +20,8 @@ public final class NyxPlayerData {
     private final ConcurrentLinkedDeque<RotationSnapshot> rotationHistory;
     private final ConcurrentLinkedDeque<Long> transactionTimestamps;
     private final ConcurrentHashMap<String, Integer> violations;
+    private final ConcurrentHashMap<String, Integer> setbackCounts;
+    private final ConcurrentHashMap<String, Integer> kickCounts;
     private final ConcurrentHashMap<Integer, Boolean> pendingTransactions;
 
     private Vector velocity;
@@ -132,6 +134,8 @@ public final class NyxPlayerData {
         this.rotationHistory = new ConcurrentLinkedDeque<>();
         this.transactionTimestamps = new ConcurrentLinkedDeque<>();
         this.violations = new ConcurrentHashMap<>();
+        this.setbackCounts = new ConcurrentHashMap<>();
+        this.kickCounts = new ConcurrentHashMap<>();
         this.pendingTransactions = new ConcurrentHashMap<>();
         this.attackTimes = new ArrayDeque<>();
         this.rightClickTimes = new ArrayDeque<>();
@@ -261,6 +265,17 @@ public final class NyxPlayerData {
             int newVl = vl - decay;
             return Math.max(newVl, 0);
         });
+        // Setback/kick counts decay each second so they only flag a player who
+        // racks up N setbacks/kicks within a short window (repeat offender), not
+        // someone whose single event was caused by a brief lag spike.
+        if (!setbackCounts.isEmpty()) {
+            setbackCounts.replaceAll((check, c) -> Math.max(c - 1, 0));
+            setbackCounts.entrySet().removeIf(e -> e.getValue() <= 0);
+        }
+        if (!kickCounts.isEmpty()) {
+            kickCounts.replaceAll((check, c) -> Math.max(c - 1, 0));
+            kickCounts.entrySet().removeIf(e -> e.getValue() <= 0);
+        }
     }
 
     public void addViolation(String check) {
@@ -466,6 +481,30 @@ public final class NyxPlayerData {
     public ConcurrentLinkedDeque<MovementSnapshot> getPositionHistory() { return positionHistory; }
     public ConcurrentLinkedDeque<RotationSnapshot> getRotationHistory() { return rotationHistory; }
     public ConcurrentHashMap<String, Integer> getViolationMap() { return violations; }
+
+    public int incrementSetbackCount(String check) {
+        return setbackCounts.merge(check, 1, Integer::sum);
+    }
+
+    public int getSetbackCount(String check) {
+        return setbackCounts.getOrDefault(check, 0);
+    }
+
+    public void resetSetbackCount(String check) {
+        setbackCounts.remove(check);
+    }
+
+    public int incrementKickCount(String check) {
+        return kickCounts.merge(check, 1, Integer::sum);
+    }
+
+    public int getKickCount(String check) {
+        return kickCounts.getOrDefault(check, 0);
+    }
+
+    public void resetKickCount(String check) {
+        kickCounts.remove(check);
+    }
 
     public int getLastAttackedEntityId() { return lastAttackedEntityId; }
     public void setLastAttackedEntityId(int id) { this.lastAttackedEntityId = id; }

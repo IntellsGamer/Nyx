@@ -50,17 +50,28 @@ public final class BanManager {
 
     /** Persist and enforce a time-based anti-cheat ban triggered by a check. */
     public void ban(Player player, Check check, int vl) {
-        UUID uuid = player.getUniqueId();
-        long durationMs = effectiveDurationMs();
-        long expires = System.currentTimeMillis() + durationMs;
         String reason = plugin.getNyxConfig().getBanReason()
             .replace("%check%", check.getName());
+        ban(player.getUniqueId(), player.getName(), check.getName(), reason, effectiveDurationMs());
+    }
 
-        BanRecord ban = new BanRecord(uuid, player.getName(), check.getName(), reason,
-            System.currentTimeMillis(), expires);
+    /** Manual admin ban via command, using the configured default duration. */
+    public void ban(Player player, String reason) {
+        ban(player.getUniqueId(), player.getName(), "manual", reason, effectiveDurationMs());
+    }
+
+    /** Manual admin ban via command with an explicit duration (ms). */
+    public void ban(Player player, String source, String reason, long durationMs) {
+        ban(player.getUniqueId(), player.getName(), source, reason, durationMs);
+    }
+
+    /** Persist a ban in SQLite and enforce it on the target player. */
+    private void ban(UUID uuid, String name, String source, String reason, long durationMs) {
+        long expires = System.currentTimeMillis() + durationMs;
+        BanRecord ban = new BanRecord(uuid, name, source, reason, System.currentTimeMillis(), expires);
         storage.recordBan(ban);
 
-        enforceBan(player.getUniqueId(), player.getName(), check.getName(), reason, durationMs);
+        enforceBan(uuid, name, source, reason, durationMs);
     }
 
     private long effectiveDurationMs() {
@@ -149,7 +160,7 @@ public final class BanManager {
     }
 
     /** Formats a millisecond duration back to a compact human/command string. */
-    private String formatDuration(long ms) {
+    public static String formatDuration(long ms) {
         long seconds = Math.max(1, ms / 1000L);
         if (seconds % 604800L == 0) return (seconds / 604800L) + "w";
         if (seconds % 86400L == 0) return (seconds / 86400L) + "d";
