@@ -73,7 +73,7 @@ bypass:
 #                   - "alert"                    → always alert
 #                   - "setback @ 20"             → setback at VL 20
 #                   - "kick @ 50"                → kick at VL 50
-#                   - "cmd:tempban %player% 7d"  → custom command at VL 0
+#                   - "cmd:tempban %player% 3d"  → custom command at VL 0
 # +-----------------------------------------------------------------------+
 
 checks:
@@ -454,6 +454,17 @@ checks:
       - "setback @ 6"
       - "kick @ 10"
 
+  scaffold:
+    enabled: true
+    description: "Detects scaffold/tower auto-block placement"
+    threshold: 5
+    decay: 3
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "kick @ 20"
+
 punishment:
   # Broadcast punishment actions to the server
   broadcast: true
@@ -461,8 +472,22 @@ punishment:
   delay: 0
   # Console commands executed on punishment (use %player% %check% placeholders)
   commands:
-    kick: "kick %player% §cCheating detected! [%check%]"
-    ban: "ban %player% §cCheating detected! [%check%]"
+    kick: "kick %player% §c[Nyx] §fUnfair Advantage §7(%check%)"
+  # Anti-cheat bans are TIME-BASED (never permanent) by default.
+  ban:
+    # Duration of anti-cheat bans. Supports s/m/h/d/w units: 30s, 45m, 12h, 3d, 2w
+    duration: 3d
+    # Reason shown to the banned player (%check% placeholder supported)
+    reason: "§c[Nyx] §fUnfair Advantage §7(%check%)"
+    # If LiteBans is installed Nyx uses this console command. Placeholders:
+    #   %player% %check% %reason% %time%  (%time% = the parsed duration, e.g. "7d")
+    litebans-command: "litebans:ban %player% %time% %reason%"
+
+storage:
+  # Persist global violation levels across reconnects and server restarts
+  # using a self-contained SQLite database (plugins/Nyx/nyx.db). Cheaters no
+  # longer reset to zero just by rejoining.
+  persist-global-violations: true
 
 discord:
   # Discord webhook URL (leave empty to disable)

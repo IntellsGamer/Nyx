@@ -5,9 +5,12 @@ import dev.nyx.checks.Check;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+
+import java.util.Date;
 
 public final class PunishmentManager {
 
@@ -28,7 +31,14 @@ public final class PunishmentManager {
             case "alert" -> sendAlert(player, check, vl);
             case "setback" -> setback(player);
             case "kick" -> kick(player, check);
-            case "ban" -> ban(player, check);
+            case "ban" -> {
+                var banManager = plugin.getBanManager();
+                if (banManager != null) {
+                    banManager.ban(player, check, vl);
+                } else {
+                    ban(player, check);
+                }
+            }
             default -> {
                 if (action.startsWith("cmd:")) {
                     String cmd = action.substring(4)
@@ -105,8 +115,19 @@ public final class PunishmentManager {
             if (!player.isOnline()) return;
             String banMsg = plugin.getNyxConfig().getMessage("punishment.ban");
             player.kick(legacy.deserialize(banMsg));
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
-                "ban " + player.getName() + " Cheating detected! [" + check.getName() + "]");
+
+            // Time-based native Bukkit ban (never permanent). Duration is
+            // configurable; defaults to 3 days if misconfigured.
+            long durationMs = plugin.getNyxConfig().getBanDurationMs();
+            if (durationMs <= 0) {
+                durationMs = 3L * 24 * 60 * 60 * 1000;
+            }
+            String reason = plugin.getNyxConfig().getBanReason()
+                .replace("%check%", check.getName());
+            Date expiry = new Date(System.currentTimeMillis() + durationMs);
+            String source = "Nyx (" + check.getName() + ")";
+            Bukkit.getBanList(BanList.Type.NAME).addBan(player.getName(), reason, expiry, source);
+
             broadcastPunishment("punishment.broadcast", player.getName(), check.getName());
         });
     }

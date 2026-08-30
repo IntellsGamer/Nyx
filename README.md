@@ -7,9 +7,12 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 ## Features
 
 - **Prediction-based movement analysis** — compares deltas against real vanilla physics (friction, drag, gravity, ice slipperiness, elytra momentum).
-- **30+ checks** covering movement, combat, elytra, vehicle, and packet-level exploits.
+- **30+ checks** covering movement, combat, elytra, vehicle, scaffolding, and packet-level exploits.
 - **Fly-safe tuning** — elytra glide, firework boosts, and ice momentum are handled generously to avoid false flags.
 - **Per-check configuration** — thresholds, violation decay, max violations, sensitivity, and actions (`alert`, `setback`, `kick`, `ban`, custom commands) are all configurable in `config.yml`.
+- **Server-velocity buffering** — knockback is buffered and consumed over movement ticks, giving a far more reliable anti-knockback check and fewer false flags.
+- **Time-based bans** — bans are never permanent (default 3 days, configurable). Uses **LiteBans** automatically when installed, otherwise Bukkit's native ban list.
+- **Global VL persistence** — violation levels and bans are stored in a self-contained **SQLite** database, so cheaters cannot reset to zero by rejoining or by a server restart.
 - **Discord webhook alerts** with embedded violation info.
 - **In-game cheat detection GUI** (`/nyx gui`) to toggle checks live.
 - **Folia supported** — runs on Folia multi-threaded servers.
@@ -20,7 +23,7 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 
 - **Java 21+**
 - **Paper** 1.21.5, **1.21.6**, or **1.21.11** (or a matching Paper fork: Purpur, Folia, etc.) — each version ships a specialized jar pinned to the right Paper API + PacketEvents.
-- ProtocolLib, Geyser/Floodgate and ViaVersion are optional soft dependencies.
+- ProtocolLib, Geyser/Floodgate, ViaVersion and LiteBans are optional soft dependencies.
 
 ## Versions
 
@@ -67,7 +70,7 @@ Aliases: `/nyx` is also available as `/ac` and `/anticheat`.
 
 **Combat** — `reach`, `hitbox`, `aimassist`, `autoclicker`, `velocity`, `aimmodulo360`, `attackwhileusing`, `selfinteract`, `multiinteract`, `noswing`, `tridenta`, `tridentb`
 
-**Other** — `badpackets`, `inventorymove`, `fastbreak`, `fastplace`, `fastuse`, `web`
+**Other** — `badpackets`, `inventorymove`, `fastbreak`, `fastplace`, `fastuse`, `web`, `scaffold`
 
 ## Configuration
 
@@ -88,6 +91,31 @@ checks:
 ```
 
 Supports `alert`, `setback`, `kick`, `ban`, and `cmd:<command>` (with `%player%`, `%check%`, `%vl%` placeholders). Append ` @ <vl>` to delay an action until a violation level is reached.
+
+### Time-based bans
+
+Bans are always **time-based** (never permanent) and configurable:
+
+```yaml
+punishment:
+  ban:
+    duration: 3d        # s/m/h/d/w units — 30s, 45m, 12h, 3d, 2w
+    reason: "§c[Nyx] §fUnfair Advantage §7(%check%)"
+    litebans-command: "litebans:ban %player% %time% %reason%"
+```
+
+- If **LiteBans** is installed and enabled, Nyx issues bans through it (rich ban screen).
+- Otherwise it falls back to Bukkit's native ban list with an expiry — no permanent bans either way.
+- The `%time%` placeholder is filled with the parsed duration (e.g. `3d`).
+
+### Persistent storage (SQLite)
+
+Violation levels and bans are stored in a self-contained `plugins/Nyx/nyx.db` database so a cheater's history survives reconnects and server restarts:
+
+```yaml
+storage:
+  persist-global-violations: true
+```
 
 Also featured: Discord webhook alerts, Geyser/Floodgate Bedrock auto-tuning, creative/spectator and per-world bypass, and performance options (async + virtual threads).
 

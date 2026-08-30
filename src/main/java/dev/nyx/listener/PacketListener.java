@@ -33,7 +33,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Strider;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -98,6 +97,11 @@ public final class PacketListener extends PacketListenerAbstract {
         ));
 
         combatChecks.add(new AimAssistCheck(plugin));
+
+        // Scaffold runs only from its dedicated block-place packet handler, so
+        // it is registered (for config/VL lookup) but excluded from the generic
+        // per-movement-tick run loop to avoid inspecting stale placement state.
+        cm.register(new ScaffoldCheck(plugin));
 
         for (Check check : movementChecks) cm.register(check);
         for (Check check : combatChecks) cm.register(check);
@@ -287,6 +291,28 @@ public final class PacketListener extends PacketListenerAbstract {
             data.setAlerted(false);
             data.recordRightClick();
 
+            WrapperPlayClientPlayerBlockPlacement place = new WrapperPlayClientPlayerBlockPlacement(event);
+            var blockPos = place.getBlockPosition();
+            if (blockPos != null) {
+                data.incrementPlaceCountThisTick();
+                data.setLastPlaceTime(System.currentTimeMillis());
+                data.setPlaceBlock(blockPos.x, blockPos.y, blockPos.z);
+                data.setPlaceFace(place.getFaceId());
+
+                var cursor = place.getCursorPosition();
+                if (cursor != null && (!Float.isFinite(cursor.x) || !Float.isFinite(cursor.y) || !Float.isFinite(cursor.z))) {
+                    ScaffoldCheck scaffold = plugin.getCheckManager().getCheck(ScaffoldCheck.class);
+                    if (scaffold != null && scaffold.canRun(data)) {
+                        scaffold.flag(data, "InvalidCursor");
+                    }
+                }
+
+                ScaffoldCheck scaffold = plugin.getCheckManager().getCheck(ScaffoldCheck.class);
+                if (scaffold != null && scaffold.canRun(data)) {
+                    scaffold.handle(data);
+                }
+            }
+
         } else if (packetType == PacketType.Play.Client.CLICK_WINDOW
             || packetType == PacketType.Play.Client.CLOSE_WINDOW) {
             data.setAlerted(false);
@@ -323,7 +349,10 @@ public final class PacketListener extends PacketListenerAbstract {
                 NyxPlayerData data = plugin.getPlayerDataManager().getData(player);
                 if (data != null) {
                     var vec = velocityPacket.getVelocity();
-                    data.setVelocity(new org.bukkit.util.Vector(vec.x, vec.y, vec.z));
+                    data.recordServerVelocity(
+                        new org.bukkit.util.Vector(vec.x, vec.y, vec.z),
+                        System.currentTimeMillis()
+                    );
                     data.setLastVelocityTime(System.currentTimeMillis());
                 }
             }
@@ -401,8 +430,6 @@ public final class PacketListener extends PacketListenerAbstract {
             toLocation = player.getLocation();
         }
         data.addRotationSnapshot(yaw, pitch);
-
-        data.setVelocity(new Vector(data.getDeltaX(), data.getDeltaY(), data.getDeltaZ()));
 
         long transactionId = data.getLastTransactionId() + 1;
         data.recordTransaction(transactionId, System.currentTimeMillis());

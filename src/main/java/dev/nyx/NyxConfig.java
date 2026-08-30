@@ -26,6 +26,10 @@ public final class NyxConfig {
     private boolean discordEnabled;
     private String discordWebhookUrl;
     private String adminPermission;
+    private String banCommand;
+    private String banDuration;
+    private String banReason;
+    private boolean persistGlobally;
 
     private final Map<String, CheckConfig> checkConfigs = new LinkedHashMap<>();
 
@@ -64,6 +68,10 @@ public final class NyxConfig {
         this.discordEnabled = config.getBoolean("discord.enabled", false);
         this.discordWebhookUrl = config.getString("discord.webhook-url", "");
         this.adminPermission = config.getString("alerts.permission", "nyx.admin");
+        this.banCommand = config.getString("punishment.ban.litebans-command", "litebans:ban %player% %time% %reason%");
+        this.banDuration = config.getString("punishment.ban.duration", "3d");
+        this.banReason = config.getString("punishment.ban.reason", "§c[Nyx] §fUnfair Advantage §7(%check%)");
+        this.persistGlobally = config.getBoolean("storage.persist-global-violations", true);
 
         loadCheckConfigs();
         mergeDefaultConfig();
@@ -133,7 +141,8 @@ public final class NyxConfig {
         Map.entry("fastbreak", List.of("alert", "kick @ 20")),
         Map.entry("fastplace", List.of("alert", "kick @ 25")),
         Map.entry("fastuse", List.of("alert", "kick @ 25")),
-        Map.entry("web", List.of("alert", "setback @ 6", "kick @ 10"))
+        Map.entry("web", List.of("alert", "setback @ 6", "kick @ 10")),
+        Map.entry("scaffold", List.of("alert", "kick @ 20"))
     );
 
     private void loadCheckConfigs() {
@@ -191,6 +200,36 @@ public final class NyxConfig {
     public boolean isDiscordEnabled() { return discordEnabled; }
     public String getDiscordWebhookUrl() { return discordWebhookUrl; }
     public String getAdminPermission() { return adminPermission; }
+    public String getBanCommand() { return banCommand; }
+    public String getBanDuration() { return banDuration; }
+    public String getBanReason() { return banReason; }
+    public boolean isPersistGlobally() { return persistGlobally; }
+
+    /**
+     * Parses a duration string like "3d", "30m", "12h", "2w", "45s" into
+     * milliseconds. Returns 0 if the format is invalid.
+     */
+    public long getBanDurationMs() {
+        if (banDuration == null || banDuration.isBlank()) return 0;
+        String s = banDuration.trim().toLowerCase();
+        int i = 0;
+        while (i < s.length() && Character.isDigit(s.charAt(i))) i++;
+        if (i == 0 || i >= s.length()) return 0;
+        try {
+            long amount = Long.parseLong(s.substring(0, i));
+            char unit = s.charAt(i);
+            return switch (unit) {
+                case 's' -> amount * 1000L;
+                case 'm' -> amount * 60_000L;
+                case 'h' -> amount * 3_600_000L;
+                case 'd' -> amount * 86_400_000L;
+                case 'w' -> amount * 604_800_000L;
+                default -> 0;
+            };
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
 
     public String getPrefix() {
         return prefix;

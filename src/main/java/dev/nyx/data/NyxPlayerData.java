@@ -109,6 +109,19 @@ public final class NyxPlayerData {
     private long lastDigCompleteTime;
     private int consecutiveBreaks;
 
+    private int placeCountThisTick;
+    private long lastPlaceTime;
+    private int placeBlockX, placeBlockY, placeBlockZ;
+    private int lastPlaceBlockX, lastPlaceBlockY, lastPlaceBlockZ;
+    private int placeFace;
+    private int lastPlaceFace;
+    private boolean placedScaffoldThisTick;
+
+    private final Deque<ServerVelocity> serverVelocityBuffer = new ArrayDeque<>();
+    private static final long SERVER_VELOCITY_TIMEOUT_MS = 3000;
+    private double velocityBuffer;
+    private int serverVelocityBufferTicks;
+
     private static final int MAX_HISTORY = 30;
     private static final double TELEPORT_THRESHOLD = 10.0;
 
@@ -254,6 +267,12 @@ public final class NyxPlayerData {
         violations.merge(check, 1, Integer::sum);
     }
 
+    public void setViolationFromStorage(String check, int vl) {
+        if (vl > 0) {
+            violations.put(check, vl);
+        }
+    }
+
     public int getViolations(String check) {
         return violations.getOrDefault(check, 0);
     }
@@ -328,6 +347,50 @@ public final class NyxPlayerData {
     public UUID getUuid() { return uuid; }
     public Vector getVelocity() { return velocity; }
     public void setVelocity(Vector velocity) { this.velocity = velocity; }
+
+    public void recordServerVelocity(Vector vec, long timestamp) {
+        synchronized (serverVelocityBuffer) {
+            serverVelocityBuffer.addLast(new ServerVelocity(vec.clone(), timestamp));
+            if (serverVelocityBuffer.size() > 3) {
+                serverVelocityBuffer.pollFirst();
+            }
+        }
+    }
+
+    public ServerVelocity peekServerVelocity() {
+        synchronized (serverVelocityBuffer) {
+            long now = System.currentTimeMillis();
+            ServerVelocity latest = null;
+            for (ServerVelocity sv : serverVelocityBuffer) {
+                if (now - sv.timestamp() > SERVER_VELOCITY_TIMEOUT_MS) continue;
+                if (latest == null || sv.timestamp() > latest.timestamp()) {
+                    latest = sv;
+                }
+            }
+            return latest;
+        }
+    }
+
+    public boolean hasServerVelocity() {
+        return peekServerVelocity() != null;
+    }
+
+    public void clearServerVelocity() {
+        synchronized (serverVelocityBuffer) {
+            serverVelocityBuffer.clear();
+        }
+        this.serverVelocityBufferTicks = 0;
+    }
+
+    public double getVelocityBuffer() { return velocityBuffer; }
+    public void addVelocityBuffer(double delta) {
+        this.velocityBuffer = Math.max(0, this.velocityBuffer + delta);
+    }
+    public void resetVelocityBuffer(double start) { this.velocityBuffer = Math.max(0, start); }
+    public int getServerVelocityBufferTicks() { return serverVelocityBufferTicks; }
+    public void incrementServerVelocityBufferTicks() { this.serverVelocityBufferTicks++; }
+    public void resetServerVelocityBufferTicks() { this.serverVelocityBufferTicks = 0; }
+
     public Vector getAcceleration() { return acceleration; }
     public double getDeltaX() { return deltaX; }
     public double getDeltaY() { return deltaY; }
@@ -484,10 +547,33 @@ public final class NyxPlayerData {
         this.sentAttackThisTick = false;
         this.sentAnimationThisTick = false;
         this.elytraStartPacketCount = 0;
+        this.placeCountThisTick = 0;
+        this.lastPlaceBlockX = this.placeBlockX;
+        this.lastPlaceBlockY = this.placeBlockY;
+        this.lastPlaceBlockZ = this.placeBlockZ;
+        this.lastPlaceFace = this.placeFace;
     }
+
+    public int getPlaceCountThisTick() { return placeCountThisTick; }
+    public void incrementPlaceCountThisTick() { this.placeCountThisTick++; }
+    public long getLastPlaceTime() { return lastPlaceTime; }
+    public void setLastPlaceTime(long t) { this.lastPlaceTime = t; }
+    public int getPlaceBlockX() { return placeBlockX; }
+    public int getPlaceBlockY() { return placeBlockY; }
+    public int getPlaceBlockZ() { return placeBlockZ; }
+    public void setPlaceBlock(int x, int y, int z) { this.placeBlockX = x; this.placeBlockY = y; this.placeBlockZ = z; }
+    public int getLastPlaceBlockX() { return lastPlaceBlockX; }
+    public int getLastPlaceBlockY() { return lastPlaceBlockY; }
+    public int getLastPlaceBlockZ() { return lastPlaceBlockZ; }
+    public int getPlaceFace() { return placeFace; }
+    public int getLastPlaceFace() { return lastPlaceFace; }
+    public void setPlaceFace(int face) { this.placeFace = face; }
+    public boolean isPlacedScaffoldThisTick() { return placedScaffoldThisTick; }
+    public void setPlacedScaffoldThisTick(boolean v) { this.placedScaffoldThisTick = v; }
 
     public record MovementSnapshot(Location location, boolean onGround, long timestamp) {}
     public record RotationSnapshot(float yaw, float pitch, long timestamp) {}
+    public record ServerVelocity(Vector vector, long timestamp) {}
 
     public enum IceType {
         NONE(0.28),

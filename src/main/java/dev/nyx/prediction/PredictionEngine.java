@@ -18,7 +18,8 @@ public final class PredictionEngine {
 
         boolean onGround = data.isOnGround();
 
-        Vector velocity = data.getVelocity() != null ? data.getVelocity().clone() : new Vector();
+        var serverVel = data.peekServerVelocity();
+        Vector velocity = serverVel != null ? serverVel.vector().clone() : new Vector();
 
         double velY = velocity.getY();
         if (!onGround) {
