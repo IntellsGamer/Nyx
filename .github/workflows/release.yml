@@ -28,21 +28,16 @@ jobs:
       - name: Build shade jars
         run: mvn -q -DskipTests clean package
 
-      - name: Publish / update releases and store in repo
+      - name: Publish / update releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Plugin version is the root project version (e.g. 1.1.0). Jar files are
-          # named "<mc-version>+<plugin-version>" (e.g. Nyx-1.21.5+1.1.0.jar), but
-          # releases stay tagged by the Minecraft version (1.21.5/1.21.6/1.21.11).
+          # Plugin version is the root project version (e.g. 1.2.0). Jars are named
+          # "<mc-version>+<plugin-version>" while releases stay tagged by the MC version.
           NYX_VERSION=$(grep -oPm1 '(?<=<version>)[0-9]+\.[0-9]+\.[0-9]+' pom.xml)
           echo "Plugin version: $NYX_VERSION"
-          
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           for v in ${{ inputs.versions }}; do
             jar="$GITHUB_WORKSPACE/$v/target/Nyx-$v+$NYX_VERSION.jar"
 
@@ -51,12 +46,6 @@ jobs:
               exit 1
             fi
 
-            # Copy jar to version folder in repo
-            repo_jar="$GITHUB_WORKSPACE/$v/Nyx-$v+$NYX_VERSION.jar"
-            cp "$jar" "$repo_jar"
-            git add "$repo_jar"
-
-            # Handle GitHub Release
             if gh release view "$v" >/dev/null 2>&1; then
               echo "Release $v exists -> updating assets with --clobber"
               gh release upload "$v" "$jar" --clobber
@@ -67,26 +56,3 @@ jobs:
                 --notes "Nyx $v+$NYX_VERSION — Nullify Your Xploits. Specialized build for Paper $v."
             fi
           done
-          
-          # Commit and push all added JARs
-          git commit -m "Update Nyx JARs for versions: ${{ inputs.versions }} (v$NYX_VERSION)"
-          git push
-
-          # After a successful commit+push, remove stale release JARs (older plugin
-          # versions) from the repo files only. GitHub Releases are left untouched so
-          # every published version stays downloadable there.
-          removed=""
-          for v in ${{ inputs.versions }}; do
-            for old in "$v"/Nyx-"$v"+*.jar "$v"/target/Nyx-"$v"+*.jar; do
-              [ -e "$old" ] || continue
-              if [ "$(basename "$old")" != "Nyx-$v+$NYX_VERSION.jar" ]; then
-                git rm --quiet "$old"
-                removed="$removed $old"
-              fi
-            done
-          done
-
-          if [ -n "$removed" ]; then
-            git commit -m "Remove stale release JARs for versions: ${{ inputs.versions }} (v$NYX_VERSION)"
-            git push
-          fi
