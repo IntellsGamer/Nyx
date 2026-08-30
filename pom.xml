@@ -6,7 +6,7 @@
 
     <groupId>dev.idebugger.nyx</groupId>
     <artifactId>Nyx</artifactId>
-    <version>1.1.5</version>
+    <version>1.1.6</version>
     <packaging>pom</packaging>
 
     <name>Nyx</name>
@@ -24,7 +24,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <nyx.version>1.1.5</nyx.version>
+        <nyx.version>1.1.6</nyx.version>
         <mc.version>1.21.5</mc.version>
         <paper.version>1.21.5-R0.1-SNAPSHOT</paper.version>
         <packetevents.version>2.8.0</packetevents.version>

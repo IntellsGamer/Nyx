@@ -17,10 +17,10 @@ public class SpeedCheck extends Check {
     private static final long GLIDE_GRACE_MS = 3000;
 
     // Momentum picked up on ice legitimately carries further than the vanilla
-    // caps allow while it fades out. Allow it to express itself and only react
-    // once the player has kept exceeding the limit for several consecutive
-    // ticks — a single coast tick over the cap is never a cheat.
-    private static final int OVER_LIMIT_TICKS_TO_FLAG = 8;
+    // caps allow while it fades out. The allowance already covers that coast, so
+    // the extra grace window is kept tiny: only a couple of ticks of slop for
+    // jitter, and sustained over-limit movement gets flagged right away.
+    private static final int OVER_LIMIT_TICKS_TO_FLAG = 3;
     private static final int OVER_LIMIT_DECAY_TICKS = 3;
 
     private final Map<UUID, Integer> overLimitTicks = new ConcurrentHashMap<>();
