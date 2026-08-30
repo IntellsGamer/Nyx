@@ -104,7 +104,7 @@ public final class PunishmentManager {
     private void kick(Player player, Check check) {
         plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
             if (!player.isOnline()) return;
-            String kickMsg = plugin.getNyxConfig().getMessage("punishment.kick");
+            String kickMsg = plugin.getNyxConfig().getMessage("punishment.kick", "check", check.getName());
             player.kick(legacy.deserialize(kickMsg));
             broadcastPunishment("punishment.notify-staff", player.getName(), check.getName());
         });

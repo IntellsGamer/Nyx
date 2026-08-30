@@ -47,7 +47,7 @@ alert:
   verbose: "<check> §7failed§r §c<player> §7(VL: <violations> | <info>)"
 
 punishment:
-  kick: "§7[§cNyx§7]§r §cYou have been removed from the server."
+  kick: "§7[§cNyx§7]§r §cYou have been removed from the server §7(<check>)"
   ban: "§7[§cNyx§7]§r §fUnfair Advantage\n§7You have been banned for using unfair modifications."
   notify-staff: "§c<player> was punished for <check>"
   broadcast: "§c<player> was punished for <check>"
