@@ -6,7 +6,7 @@
 
     <groupId>dev.idebugger.nyx</groupId>
     <artifactId>Nyx</artifactId>
-    <version>1.1.3</version>
+    <version>1.1.4</version>
     <packaging>pom</packaging>
 
     <name>Nyx</name>
