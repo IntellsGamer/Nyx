@@ -6,11 +6,24 @@ import dev.idebugger.nyx.checks.CheckData;
 import dev.idebugger.nyx.data.NyxPlayerData;
 import dev.idebugger.nyx.data.NyxPlayerData.IceType;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 @CheckData(name = "Speed", description = "Detects horizontal speed violations")
 public class SpeedCheck extends Check {
 
     private static final long FIREWORK_GRACE_MS = 4000;
     private static final long GLIDE_GRACE_MS = 3000;
+
+    // Momentum picked up on ice legitimately carries further than the vanilla
+    // caps allow while it fades out. Allow it to express itself and only react
+    // once the player has kept exceeding the limit for several consecutive
+    // ticks — a single coast tick over the cap is never a cheat.
+    private static final int OVER_LIMIT_TICKS_TO_FLAG = 6;
+    private static final int OVER_LIMIT_DECAY_TICKS = 2;
+
+    private final Map<UUID, Integer> overLimitTicks = new ConcurrentHashMap<>();
 
     public SpeedCheck(Nyx plugin) {
         super(plugin);
@@ -36,9 +49,22 @@ public class SpeedCheck extends Check {
         if (speed < 0.01) return;
 
         double max = getMaxSpeed(data);
+        UUID uuid = data.getUuid();
+
         if (speed > max) {
-            flag(data, String.format("S:%.3f M:%.3f", speed, max));
+            int count = overLimitTicks.merge(uuid, 1, Integer::sum);
+            if (count >= OVER_LIMIT_TICKS_TO_FLAG) {
+                overLimitTicks.put(uuid, 0);
+                flag(data, String.format("S:%.3f M:%.3f x%d", speed, max, count));
+            }
+            return;
         }
+
+        // Decay the watchdog and drop idle entries so the map never grows stale.
+        overLimitTicks.compute(uuid, (k, v) -> {
+            int next = (v == null ? 0 : v) - OVER_LIMIT_DECAY_TICKS;
+            return next <= 0 ? null : next;
+        });
     }
 
     private double getMaxSpeed(NyxPlayerData data) {
@@ -46,11 +72,27 @@ public class SpeedCheck extends Check {
         if (data.isInLava()) return 0.30;
         if (data.isClimbing()) return 0.17;
 
-        // Sprint-jumping (or walking) on ice legitimately carries very high horizontal
-        // momentum for a short while after leaving the surface. Without this, the plain
-        // 0.45 airborne cap false-flags anyone sprint-jumping across ice/packed/blue ice.
-        if (!data.isOnGround() && !data.isLastOnGround() && data.hasIceMomentum()) {
-            IceType ice = data.getLastIceType();
+        // Ice momentum: while the player is on (or just left) ice, the surface
+        // hands out way more speed than normal sprinting. Use the decaying
+        // allowance as a floor on every branch so a player sprint/jumping away
+        // from ice is never clamped until the real speed has fallen back down.
+        double momentum = data.getIceMomentumAllowance();
+
+        if (data.isOnGround() || data.isLastOnGround()) {
+            IceType ice = data.getIceType();
+            if (ice != null && ice != IceType.NONE) {
+                return Math.max(ice.getMaxSpeed(), momentum);
+            }
+            if (data.isOnSlime()) return Math.max(0.40, momentum);
+            if (data.isOnSoulSand()) return Math.max(0.20, momentum);
+            if (data.isSneaking()) return Math.max(0.10, momentum);
+            return Math.max(data.isSprinting() ? 0.35 : 0.28, momentum);
+        }
+
+        // Still airborne over the ice itself: sprint-jumps on ice legitimately
+        // reach ~1.6/1.8/2.6 blocks-tick, keep those generous caps.
+        IceType ice = data.getIceType();
+        if (ice != null && ice != IceType.NONE) {
             return switch (ice) {
                 case BLUE_ICE -> 2.6;
                 case PACKED_ICE -> 1.8;
@@ -58,16 +100,6 @@ public class SpeedCheck extends Check {
             };
         }
 
-        if (data.isOnGround() || data.isLastOnGround()) {
-            IceType ice = data.getIceType();
-            if (ice != null && ice != IceType.NONE) return ice.getMaxSpeed();
-            if (data.isOnSlime()) return 0.40;
-            if (data.isOnSoulSand()) return 0.20;
-            if (data.isSneaking()) return 0.10;
-            if (data.isSprinting()) return 0.35;
-            return 0.28;
-        }
-
-        return 0.45;
+        return Math.max(0.45, momentum);
     }
 }

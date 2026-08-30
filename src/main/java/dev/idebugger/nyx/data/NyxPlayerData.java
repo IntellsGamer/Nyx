@@ -39,8 +39,12 @@ public final class NyxPlayerData {
     private IceType iceType = IceType.NONE;
     private IceType lastIceType = IceType.NONE;
     private long lastIceTime;
-    /** How long airborne speed is allowed to ride on ice momentum after leaving ice. */
-    public static final long ICE_MOMENTUM_MS = 1500;
+    private long lastWaterTime;
+    private long lastLavaTime;
+    /** How quickly the ice-momentum speed allowance fades away per movement packet. */
+    public static final double ICE_MOMENTUM_DECAY = 0.98;
+    /** Extra speed a player may keep riding while coasting off ice. */
+    private double iceMomentumAllowance = 0;
     private boolean onSlime;
     private boolean onSoulSand;
     private boolean onHoney;
@@ -422,9 +426,25 @@ public final class NyxPlayerData {
     public boolean isOnGround() { return onGround; }
     public boolean isLastOnGround() { return lastOnGround; }
     public boolean isInWater() { return inWater; }
-    public void setInWater(boolean inWater) { this.inWater = inWater; }
+    public void setInWater(boolean inWater) {
+        if (inWater) this.lastWaterTime = System.currentTimeMillis();
+        this.inWater = inWater;
+    }
     public boolean isInLava() { return inLava; }
-    public void setInLava(boolean inLava) { this.inLava = inLava; }
+    public void setInLava(boolean inLava) {
+        if (inLava) this.lastLavaTime = System.currentTimeMillis();
+        this.inLava = inLava;
+    }
+
+    /**
+     * True while the player recently was submerged in (or touching) water or
+     * lava. Jumping out of the water surface keeps both feet above the liquid
+     * for most of the arc, so checks must not treat that as flight.
+     */
+    public boolean isRecentlyInLiquid(long windowMs) {
+        long now = System.currentTimeMillis();
+        return now - lastWaterTime < windowMs || now - lastLavaTime < windowMs;
+    }
     public boolean isInWeb() { return inWeb; }
     public void setInWeb(boolean inWeb) { this.inWeb = inWeb; }
     public boolean isOnIce() { return onIce; }
@@ -441,12 +461,42 @@ public final class NyxPlayerData {
     }
 
     /**
-     * True while the player recently stood on ice. Sprint-jumping on ice (or a boat
-     * launching off ice) legitimately keeps a high horizontal speed for a short time
-     * after leaving the surface, so checks must not flag it as speed cheating.
+     * Updates the decaying ice-momentum speed allowance.
+     *
+     * While standing (or sprint-jumping) on ice the player legitimately gathers
+     * far more horizontal speed than the vanilla cap. After leaving the ice the
+     * player keeps riding that speed while sprinting/jumping — bunny-hopping
+     * barely bleeds it — so instead of a fixed time window the allowance acts as
+     * an envelope: it is refilled to the speed actually reached on ice, and away
+     * from ice it only sags slowly toward whatever the player is still doing.
+     * A player who slows down brings the allowance back to zero; a player who
+     * somehow exceeds the envelope is a cheat.
      */
-    public boolean hasIceMomentum() {
-        return lastIceType != IceType.NONE && System.currentTimeMillis() - lastIceTime < ICE_MOMENTUM_MS;
+    public void tickIceMomentum() {
+        if (iceType != IceType.NONE) {
+            // Keep at least the plain ice skating speed, but otherwise borrow
+            // the real speed the player is achieving so sprint-jumps on ice are
+            // never mistreated.
+            double floor = switch (iceType) {
+                case BLUE_ICE -> 1.30;
+                case PACKED_ICE -> 0.95;
+                default -> 0.80; // ICE, FROSTED_ICE
+            };
+            iceMomentumAllowance = Math.max(iceMomentumAllowance, Math.max(floor, horizontalSpeed));
+        } else {
+            iceMomentumAllowance = Math.max(horizontalSpeed, iceMomentumAllowance * ICE_MOMENTUM_DECAY);
+            if (iceMomentumAllowance < 0.05) {
+                iceMomentumAllowance = 0;
+            }
+        }
+    }
+
+    /**
+     * Extra horizontal speed the player may legitimately travel at while the
+     * high momentum picked up on ice is still fading out. 0 means no allowance.
+     */
+    public double getIceMomentumAllowance() {
+        return iceMomentumAllowance;
     }
 
     public IceType getLastIceType() { return lastIceType; }

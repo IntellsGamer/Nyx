@@ -441,6 +441,8 @@ public final class PacketListener extends PacketListenerAbstract {
             data.setIceType(ice);
             data.setOnIce(ice != NyxPlayerData.IceType.NONE);
             data.recordIce(ice);
+            // Refill/decay the ice-momentum speed allowance every movement tick.
+            data.tickIceMomentum();
         }
         {
             boolean inWeb = false;
