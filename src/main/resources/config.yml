@@ -191,6 +191,20 @@ checks:
       - "setback @ 12"
       - "kick @ 20"
 
+  snowshoe:
+    enabled: true
+    description: "Detects walking on top of powder snow without leather boots"
+    autoban: true
+    setbacks-to-ban: 5
+    kicks-to-ban: 3
+    threshold: 8
+    decay: 3
+    max-violations: 20
+    sensitivity: 0.8
+    actions:
+      - "alert"
+      - "setback @ 10"
+
   boatfly:
     enabled: true
     description: "Detects flying or speed-hacking with boats"

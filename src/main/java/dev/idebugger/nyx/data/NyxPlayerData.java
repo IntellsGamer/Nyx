@@ -72,6 +72,7 @@ public final class NyxPlayerData {
     private boolean wurstPatternDetected;
     private Location lastSafeLocation;
     private int nofallCorrections;
+    private int snowShoeTicks;
     private boolean startGlidingThisTick;
     private boolean startGlidingLastTick;
     private boolean clientSprinting;
@@ -351,6 +352,9 @@ public final class NyxPlayerData {
     public int getNofallCorrections() { return nofallCorrections; }
     public void incrementNofallCorrections() { this.nofallCorrections++; }
     public void resetNofallCorrections() { this.nofallCorrections = 0; }
+
+    public int getSnowShoeTicks() { return snowShoeTicks; }
+    public void setSnowShoeTicks(int ticks) { this.snowShoeTicks = Math.max(0, ticks); }
     public boolean getPrevPosPacketOnGround() { return prevPosPacketOnGround; }
     public void resetAccumulatedPacketFall() { this.accumulatedPacketFall = 0; }
     public double getLastPosPacketY() { return lastPosPacketY; }

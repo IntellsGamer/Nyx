@@ -64,6 +64,7 @@ public final class PacketListener extends PacketListenerAbstract {
             new PhaseCheck(plugin),
             new JesusCheck(plugin),
             new BoatFlyCheck(plugin),
+            new SnowShoeCheck(plugin),
             new EntitySpeedCheck(plugin),
             new EntityControlCheck(plugin),
             new BoatCheck(plugin),

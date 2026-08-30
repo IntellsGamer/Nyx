@@ -11,6 +11,7 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 - **Fly-safe tuning** — elytra glide, firework boosts, and ice momentum are handled generously to avoid false flags.
 - **Per-check configuration** — thresholds, violation decay, max violations, sensitivity, and actions (`alert`, `setback`, `kick`, `ban`, custom commands) are all configurable in `config.yml`.
 - **Server-velocity buffering** — knockback is buffered and consumed over movement ticks, giving a far more reliable anti-knockback check and fewer false flags.
+- **Surface-state awareness** — jesus (water-walking), boatfly, and `snowshoe` (walking on powder snow without leather boots) validate that a player's on-ground claim is actually possible on the block under their feet.
 - **Time-based bans** — bans are never permanent (default 3 days, configurable). Uses **LiteBans** automatically when installed, otherwise Bukkit's native ban list.
 - **Global VL persistence** — violation levels, bans, and setback/kick escalation counts are stored in a self-contained **SQLite** database, so cheaters cannot reset to zero by rejoining or by a server restart.
 - **Discord webhook alerts** with embedded violation info.
@@ -29,10 +30,10 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 
 | MC version | Module | Jar | Paper | PacketEvents |
 | --- | --- | --- | --- | --- |
-| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.1.2.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
-| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.1.2.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
-| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.1.2.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
-| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.1.2.jar` | `26.2.build.111-stable` | 2.13.0 |
+| 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.1.9.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
+| 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.1.9.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
+| 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.1.9.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
+| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.1.9.jar` | `26.2.build.111-stable` | 2.13.0 |
 
 Each jar is a specialized build — the shared source is compiled against that version's Paper API and PacketEvents, so the packet listeners and checks are verified against the matching PacketEvents release. Ready-to-download binaries are also published to the [GitHub Releases](https://github.com/IntellsGamer/Nyx/releases) page (one release per Minecraft version).
 
@@ -67,7 +68,7 @@ Aliases: `/nyx` is also available as `/ac` and `/anticheat`.
 
 ## Checks
 
-**Movement** — `speed`, `fly`, `nofall`, `timer`, `phase`, `jesus`, `boatfly`, `entityspeed`, `entitycontrol`, `boat`
+**Movement** — `speed`, `fly`, `nofall`, `timer`, `phase`, `jesus`, `boatfly`, `snowshoe`, `entityspeed`, `entitycontrol`, `boat`
 
 **Elytra** — `elytraa`, `elytrab`, `elytrac`, `extraelytra` (packet spam, impossible speed/height control)
 
@@ -104,8 +105,10 @@ Supports `alert`, `setback`, `kick`, `ban`, and `cmd:<command>` (with `%player%`
 A check can escalate to a **time-based ban** through three independent paths:
 
 1. **High VL** — a `ban @ <very high VL>` action for continuous, sustained cheating.
-2. **Repeated setbacks** — the same check setbacks the player `setbacks-to-ban` times; the count decays by 1/second, so only genuine, ongoing cheating accumulates.
+2. **Repeated setbacks** — the same check setbacks the player `setbacks-to-ban` times (counts never decay, so the floor is exactly that many offences no matter how far apart).
 3. **Repeated kicks** — the same check kicks the player `kicks-to-ban` times. Less mercy than setbacks: after a few kicks they have clearly been caught repeatedly.
+
+Actions fire once per upward crossing of their VL threshold, so violations hovering around a threshold (thanks to decay) cannot inflate the escalation counts. After an auto-ban both the setback and kick floors reset to zero, so a released offender starts clean.
 
 `punishment.ban.autoban-enabled` is the global master switch for all three paths, while per-check `autoban: false` disables them for just that check. The manual `/nyx ban` command is never affected. Setback and kick escalation counts are persisted in SQLite, so **they survive kicks and reconnects** — a player cannot escape a ban by simply logging back in.
 
@@ -151,7 +154,7 @@ mvn clean package
 mvn clean package -pl 1.21.6
 ```
 
-Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.2.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
+Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.9.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
 
 ## License
 
