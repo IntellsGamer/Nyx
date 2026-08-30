@@ -5,6 +5,9 @@ import dev.idebugger.nyx.checks.Check;
 import dev.idebugger.nyx.checks.CheckData;
 import dev.idebugger.nyx.data.NyxPlayerData;
 import dev.idebugger.nyx.data.NyxPlayerData.ServerVelocity;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 /**
@@ -12,21 +15,36 @@ import org.bukkit.util.Vector;
  *
  * When the server sends an ENTITY_VELOCITY packet it is buffered in
  * NyxPlayerData (recordServerVelocity). Over the following movement ticks the
- * player is expected to move with horizontal and vertical components derived
- * from that applied velocity (decaying each tick). We track the ratio of
- * observed movement to expected movement and flag when the player consumes
- * far less of the knockback than they should.
+ * player is expected to move with the horizontal and vertical components of
+ * that applied velocity, decaying each tick. We track how much of the knockback
+ * is actually consumed and flag sustained under-consumption.
  *
- * A positive buffer lets a handful of noisy ticks pass; flags require
- * sustained under-consumption so a single lag spike can't auto-punish.
+ * Legitimate reductions are accounted for so armored / enchanted players are
+ * not mistaken for cheaters:
+ *  - netherite armour's knockback resistance (GENERIC_KNOCKBACK_RESISTANCE);
+ *  - blast protection and explosion knockback resistance
+ *    (GENERIC_EXPLOSION_KNOCKBACK_RESISTANCE) for TNT / creeper knockback;
+ *  - huge knockbacks (wind charges, explosions) get a tolerance bump because
+ *    their applied velocity is naturally consumed sloppier than melee hits.
+ *
+ * Every flag re-applies the expected velocity back onto the player (an actual
+ * knockback), so resisting knockback no longer pays off even between the
+ * config-driven punches.
  */
-@CheckData(name = "Velocity", description = "Detects anti-knockback (buffered server velocity)")
+@CheckData(name = "Velocity", description = "Detects anti-knockback (armor/blast aware, re-applies knockback)")
 public class VelocityCheck extends Check {
 
-    private static final int MAX_BUFFER_TICKS = 10;
+    private static final int MAX_BUFFER_TICKS = 12;
 
-    private static final double MIN_HORIZ_RATIO = 0.75;
-    private static final double MAX_HORIZ_RATIO = 1.6;
+    private static final double MIN_HORIZ_RATIO = 0.70;
+    private static final double MAX_HORIZ_RATIO = 1.9;
+
+    /** Applied velocity magnitude above which we grant extra consumption tolerance (wind charges etc.). */
+    private static final double STRONG_KNOCKBACK = 1.8;
+    private static final double STRONG_TOLERANCE = 1.25;
+
+    private static final double FLAG_THRESHOLD = 2.0;
+    private static final double FLAG_THRESHOLD_LOW_SENSITIVITY = 2.75;
 
     public VelocityCheck(Nyx plugin) {
         super(plugin);
@@ -45,8 +63,16 @@ public class VelocityCheck extends Check {
         if (data.isGliding() || data.isWasGliding()) return;
 
         Vector applied = sv.vector();
-        double expectedHoriz = Math.hypot(applied.getX(), applied.getZ());
-        double expectedVert = applied.getY();
+
+        // Netherite knockback resistance, blast protection and explosion
+        // resistance legitimately reduce how far the player is pushed. The
+        // sent velocity may or may not already reflect it depending on the
+        // server fork, so discount the expected motion by the same amount to
+        // keep armored players safe while the check stays hard on everyone else.
+        double factor = knockoutFactor(data);
+
+        double expectedHoriz = Math.hypot(applied.getX(), applied.getZ()) * factor;
+        double expectedVert = applied.getY() * factor;
         if (expectedHoriz < 0.01 && expectedVert < 0.01) {
             data.clearServerVelocity();
             return;
@@ -68,7 +94,12 @@ public class VelocityCheck extends Check {
         double actualVert = data.getDeltaY();
 
         double sensitivity = getSensitivity(data);
+
+        // Wind charges / explosions land hard and are eaten with far more
+        // variance than a melee hit: relax the required consumption a little.
+        boolean strong = Math.hypot(applied.getX(), applied.getZ()) + Math.abs(applied.getY()) > STRONG_KNOCKBACK;
         double minHoriz = MIN_HORIZ_RATIO - (1.0 - sensitivity) * 0.15;
+        if (strong) minHoriz *= STRONG_TOLERANCE;
 
         boolean anyHorizontal = false;
 
@@ -79,8 +110,7 @@ public class VelocityCheck extends Check {
             // A single under-consumption tick (ground friction is ~0.6, so only
             // ~60% moves on tick 1) is normal; a sustained under-consumption is not.
             if (observed < minHoriz) {
-                double weight = sensitivity > 0.85 ? 1.0 : 0.6;
-                data.addVelocityBuffer(weight);
+                data.addVelocityBuffer(1.0);
             } else {
                 data.addVelocityBuffer(-0.35);
             }
@@ -92,7 +122,9 @@ public class VelocityCheck extends Check {
             // vertical knockback: actual upward (or reduced downward) compared to expected
             double vertRatio = actualVert / expectedVert;
             if (vertRatio < minHoriz) {
-                data.addVelocityBuffer(0.75);
+                data.addVelocityBuffer(0.9);
+            } else {
+                data.addVelocityBuffer(-0.35);
             }
         }
 
@@ -103,6 +135,24 @@ public class VelocityCheck extends Check {
         }
     }
 
+    /**
+     * Fraction of the knockback this player is legitimately allowed to ignore.
+     * Netherite armour resistance and blast protection stack up to 80%.
+     */
+    private double knockoutFactor(NyxPlayerData data) {
+        double resist = attribute(data, Attribute.KNOCKBACK_RESISTANCE);
+        resist += attribute(data, Attribute.EXPLOSION_KNOCKBACK_RESISTANCE);
+        if (resist <= 0.01) return 1.0;
+        return Math.max(0.2, 1.0 - Math.min(0.8, resist));
+    }
+
+    private double attribute(NyxPlayerData data, Attribute attr) {
+        Player player = data.getPlayer();
+        if (player == null) return 0;
+        AttributeInstance instance = player.getAttribute(attr);
+        return instance == null ? 0 : instance.getValue();
+    }
+
     private double getSensitivity(NyxPlayerData data) {
         var config = getConfig();
         return config != null ? config.sensitivity() : 0.8;
@@ -110,9 +160,9 @@ public class VelocityCheck extends Check {
 
     private void flagFromBuffer(NyxPlayerData data, double eh, double ev, double ah, double av, boolean anyH) {
         double buffer = data.getVelocityBuffer();
-        double threshold = 3.0;
+        double threshold = FLAG_THRESHOLD;
         double sensitivity = getSensitivity(data);
-        if (sensitivity < 0.5) threshold = 4.0;
+        if (sensitivity < 0.5) threshold = FLAG_THRESHOLD_LOW_SENSITIVITY;
 
         if (buffer > threshold) {
             String info;
@@ -124,7 +174,31 @@ public class VelocityCheck extends Check {
                 info = String.format("V:%.4f/%.4f", av, ev);
             }
             flag(data, info);
+
+            // Resisting knockback must not pay off: shove the expected velocity
+            // straight back onto the player, on the main thread.
+            applyKnockback(data);
+
             data.resetVelocityBuffer(1.0);
         }
+    }
+
+    /**
+     * Re-applies the still-buffered server velocity to the player, forcing the
+     * knockback they tried to cancel to actually move them.
+     */
+    private void applyKnockback(NyxPlayerData data) {
+        ServerVelocity sv = data.peekServerVelocity();
+        if (sv == null) return;
+        Vector applied = sv.vector();
+        if (applied.lengthSquared() < 1e-6) return;
+
+        Player player = data.getPlayer();
+        if (player == null || !player.isOnline()) return;
+
+        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
+            player.setVelocity(applied.clone());
+        });
     }
 }

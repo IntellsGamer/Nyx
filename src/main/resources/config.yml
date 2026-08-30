@@ -264,18 +264,17 @@ checks:
 
   velocity:
     enabled: true
-    description: "Detects anti-knockback (horizontal reduction)"
+    description: "Detects anti-knockback (armor/blast aware, re-applies knockback)"
     autoban: true
     setbacks-to-ban: 5
     kicks-to-ban: 3
-    threshold: 10
+    threshold: 5
     decay: 3
-    max-violations: 25
+    max-violations: 20
     sensitivity: 0.8
     actions:
       - "alert"
-      - "setback @ 15"
-      - "kick @ 25"
+      - "kick @ 12"
 
   hitbox:
     enabled: true

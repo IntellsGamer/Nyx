@@ -19,15 +19,18 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Detects "boat fly": making a boat climb or sprint through the air without
- * any solid ground or liquid underneath. Boating is naturally bouncy — the boat
- * rides waves, bobbles at the surface and can briefly lift a block — so this
- * check is deliberately lenient:
- *  - any solid/liquid within ~4 blocks below counts as "surface" (skimming);
- *  - on-surface speed caps are generous and buffered;
- *  - airborne horizontal speed must be extreme AND sustained;
- *  - a sustained airborne climb is the real tell, gated behind a large buffer
- *    and fully suppressed for a few seconds after leaving ice/blue ice.
+ * Detects "boat fly": making a boat climb or sprint through the air without a
+ * surface underneath. Boating is naturally bouncy — boats ride waves, bobble at
+ * the surface and can briefly lift a block — so the check separates legit
+ * surfacing from actual flight:
+ *
+ *  - "on surface" only counts a solid/liquid within ~1 block under the boat, so
+ *    hovering a few blocks above water is genuinely airborne;
+ *  - water/land caps are moderate, ice caps are high;
+ *  - high ice momentum is allowed to carry on to water/land only while it is
+ *    still fresh — you cannot outrun a plain water boat forever;
+ *  - airborne, you must either be clearly falling or have recently left ice,
+ *    otherwise sustained climbing or even a moderate level-hold flight flags.
  */
 @CheckData(name = "BoatFly", description = "Detects flying or speed-hacking with boats")
 public class BoatFlyCheck extends Check {
@@ -35,25 +38,32 @@ public class BoatFlyCheck extends Check {
     private static final long ENTER_GRACE_MS = 3000;
     private static final long ICE_MOMENTUM_MS = 2500;
 
-    private static final double SKIM_BOX_DOWN = 4.0;
+    private static final double SKIM_BOX_DOWN = 1.0;
+    private static final double SKIM_BOX_UP = 0.3;
     private static final double SURFACE_BOX_XZ = 0.9;
 
     // —— Airborne signals ——
-    private static final double CLIMB_MIN_DY = 0.05;
-    private static final double CLIMB_TRIGGER = 0.9;
-    private static final int CLIMB_MIN_AIR_TICKS = 8;
-    private static final double EXTREME_AIR_SPEED = 2.6;
-    private static final double ICE_AIR_SPEED = 6.0;
-    private static final double AIR_SPEED_BUFFER = 20.0;
+    private static final double CLIMB_MIN_DY = 0.02;
+    private static final double CLIMB_TRIGGER = 0.5;
+    private static final int CLIMB_MIN_AIR_TICKS = 6;
     private static final double CLIMB_BUFFER_DECAY = 0.10;
+    private static final double HOVER_AIR_SPEED = 1.6;
+    private static final double FALL_AIR_SPEED = 2.6;
+    private static final double FALL_DY = -0.35;
+    private static final double ICE_AIR_SPEED = 6.0;
+    private static final double AIR_SPEED_BUFFER = 8.0;
 
     // —— On-surface caps (blocks/tick) ——
     private static final double SPEED_LAND = 1.0;
-    private static final double SPEED_WATER = 1.8;
-    private static final double SPEED_GROUND = 1.4;
+    private static final double SPEED_WATER = 1.0;
+    private static final double SPEED_GROUND = 1.1;
     private static final double SPEED_ICE = 4.0;
     private static final double SPEED_BLUE_ICE = 6.5;
-    private static final double SURFACE_SPEED_BUFFER = 3.0;
+    /** Fresh-off-ice momentum caps while back on water/land: ice → 2.2, packed → 3.0, blue → 4.0. */
+    private static final double MOMENTUM_ICE = 2.2;
+    private static final double MOMENTUM_PACKED_ICE = 3.0;
+    private static final double MOMENTUM_BLUE_ICE = 4.0;
+    private static final double SURFACE_SPEED_BUFFER = 2.0;
     private static final double SURFACE_SPEED_DECAY = 1.0;
 
     private final Map<UUID, BoatState> stateMap = new ConcurrentHashMap<>();
@@ -93,18 +103,24 @@ public class BoatFlyCheck extends Check {
 
         if (isIce(at.getType()) || isIce(below.getType())) {
             state.lastIceMomentum = System.currentTimeMillis();
+            if (isIce(at.getType()) && isIce(below.getType())) {
+                state.lastIceType = at.getType();
+            } else if (isIce(at.getType())) {
+                state.lastIceType = at.getType();
+            } else {
+                state.lastIceType = below.getType();
+            }
         }
         boolean iceMomentum = System.currentTimeMillis() - state.lastIceMomentum < ICE_MOMENTUM_MS;
 
         if (hasSurfaceNearby(boatLoc)) {
-            // Boat is on/above a solid surface or a liquid (water, lava): a
-            // legit boat skims these. Speed caps are generous and buffered so a
-            // single wave/paddle spike never trips the check.
+            // Boat is rafting on a liquid or resting on solid ground/ice within
+            // ~1 block below. If it rides higher than that it is airborne.
             state.airTicks = 0;
             state.climbBuffer = 0;
             state.speedBuffer = Math.max(0, state.speedBuffer - SURFACE_SPEED_DECAY);
 
-            double max = surfaceMaxSpeed(at, below);
+            double max = surfaceMaxSpeed(at, below, state, iceMomentum);
             double speed = data.getHorizontalSpeed();
             if (speed < 0.01) return;
 
@@ -118,7 +134,7 @@ public class BoatFlyCheck extends Check {
             return;
         }
 
-        // True airborne boat: no solid/liquid anywhere in the skim box.
+        // True airborne boat: no solid/liquid within the skim box.
         state.airTicks++;
         double speed = data.getHorizontalSpeed();
         double dy = data.getDeltaY();
@@ -139,7 +155,7 @@ public class BoatFlyCheck extends Check {
 
         // Sustained upward travel with no surface below is the real boat-fly
         // tell. Legit launches arc (they soon stop climbing), so we require a
-        // large cumulative climb over several airborne ticks.
+        // cumulative climb over several airborne ticks.
         if (dy > CLIMB_MIN_DY) {
             state.climbBuffer += dy;
         } else {
@@ -150,15 +166,20 @@ public class BoatFlyCheck extends Check {
             state.airTicks = 0;
             state.climbBuffer = 0;
             flag(data, String.format("CLIMB DY:%.3f T:%d", dy, ticks));
+            return;
         }
 
-        // Fast-and-level airborne boats can sneak under the climb check, so an
-        // extreme sustained horizontal speed is caught too.
-        if (speed > EXTREME_AIR_SPEED) {
+        // Level "flight": not falling, no surface below — the boat is being
+        // held in the air. Flag once it sustains a moderate speed. A genuinely
+        // falling boat (off a launcher/cliff) can only be flagged at absurd
+        // speeds, since falling legitimately carries momentum.
+        boolean falling = dy < FALL_DY;
+        double airMax = falling ? FALL_AIR_SPEED : HOVER_AIR_SPEED;
+        if (speed > airMax) {
             state.speedBuffer += 1.0;
             if (state.speedBuffer >= AIR_SPEED_BUFFER) {
                 state.speedBuffer = 0;
-                flag(data, String.format("AIR S:%.3f", speed));
+                flag(data, String.format("AIR S:%.3f M:%.3f", speed, airMax));
             }
         } else {
             state.speedBuffer = Math.max(0, state.speedBuffer - 0.25);
@@ -172,7 +193,7 @@ public class BoatFlyCheck extends Check {
 
         BoundingBox box = new BoundingBox(
             x - SURFACE_BOX_XZ, y - SKIM_BOX_DOWN, z - SURFACE_BOX_XZ,
-            x + SURFACE_BOX_XZ, y + 1.0, z + SURFACE_BOX_XZ
+            x + SURFACE_BOX_XZ, y + SKIM_BOX_UP, z + SURFACE_BOX_XZ
         );
 
         World world = boatLoc.getWorld();
@@ -199,10 +220,19 @@ public class BoatFlyCheck extends Check {
         return false;
     }
 
-    private double surfaceMaxSpeed(Block at, Block below) {
+    private double surfaceMaxSpeed(Block at, Block below, BoatState state, boolean iceMomentum) {
         if (isIce(at.getType()) || isIce(below.getType())) {
             return (at.getType() == Material.BLUE_ICE || below.getType() == Material.BLUE_ICE)
                 ? SPEED_BLUE_ICE : SPEED_ICE;
+        }
+        if (iceMomentum) {
+            // Fresh ice momentum keeps carrying the boat fast even over water or
+            // ground, but it is a short-lived bonus, not a permanent free pass.
+            return switch (state.lastIceType) {
+                case BLUE_ICE -> MOMENTUM_BLUE_ICE;
+                case PACKED_ICE -> MOMENTUM_PACKED_ICE;
+                default -> MOMENTUM_ICE;
+            };
         }
         if (isLiquid(at) || isLiquid(below)) {
             return SPEED_WATER;
@@ -240,5 +270,6 @@ public class BoatFlyCheck extends Check {
         double climbBuffer = 0;
         double speedBuffer = 0;
         long lastIceMomentum = 0;
+        Material lastIceType = Material.ICE;
     }
 }
