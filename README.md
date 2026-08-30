@@ -16,13 +16,13 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 - **Discord webhook alerts** with embedded violation info.
 - **In-game cheat detection GUI** (`/nyx gui`) to toggle checks live.
 - **Folia supported** — runs on Folia multi-threaded servers.
-- **Java 21+** with virtual-thread support for checks.
+- **Java 21+** (Java 25 for the 26.x builds) with virtual-thread support for checks.
 - Shaded PacketEvents — no runtime dependency to install.
 
 ## Requirements
 
-- **Java 21+**
-- **Paper** 1.21.5, **1.21.6**, or **1.21.11** (or a matching Paper fork: Purpur, Folia, etc.) — each version ships a specialized jar pinned to the right Paper API + PacketEvents.
+- **Java 21+** (the **26.2** build requires **Java 25**, as Paper 26.x ships Java 25 bytecode)
+- **Paper** 1.21.5, **1.21.6**, **1.21.11**, or **26.2** (or a matching Paper fork: Purpur, Folia, etc.) — each version ships a specialized jar pinned to the right Paper API + PacketEvents.
 - ProtocolLib, Geyser/Floodgate, ViaVersion and LiteBans are optional soft dependencies.
 
 ## Versions
@@ -32,6 +32,7 @@ Nyx detects cheats by comparing live player movement against vanilla Minecraft p
 | 1.21.5 | `1.21.5/` | `1.21.5/target/Nyx-1.21.5+1.1.0.jar` | `1.21.5-R0.1-SNAPSHOT` | 2.8.0 |
 | 1.21.6 | `1.21.6/` | `1.21.6/target/Nyx-1.21.6+1.1.0.jar` | `1.21.6-R0.1-SNAPSHOT` | 2.9.5 |
 | 1.21.11 | `1.21.11/` | `1.21.11/target/Nyx-1.21.11+1.1.0.jar` | `1.21.11-R0.1-SNAPSHOT` | 2.11.2 |
+| 26.2 | `26.2/` | `26.2/target/Nyx-26.2+1.1.0.jar` | `26.2.build.111-stable` | 2.13.0 |
 
 Each jar is a specialized build — the shared source is compiled against that version's Paper API and PacketEvents, so the packet listeners and checks are verified against the matching PacketEvents release.
 
@@ -131,7 +132,7 @@ mvn clean package
 mvn clean package -pl 1.21.6
 ```
 
-Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.0.jar`). The build requires JDK 21 and Maven 3.9+.
+Each shaded jar is output to its module's `target/` folder (e.g. `1.21.6/target/Nyx-1.21.6+1.1.0.jar`). Building the **26.2** module requires **JDK 25** (the 1.21.x modules compile to Java 21 bytecode, but are built with the same JDK). Requires Maven 3.9+.
 
 ## License
 

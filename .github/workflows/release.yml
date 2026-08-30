@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       versions:
-        description: 'Space-separated Minecraft versions to publish (e.g. 1.21.5 1.21.6 1.21.11)'
+        description: 'Space-separated Minecraft versions to publish (e.g. 26.2 1.21.5 1.21.6 1.21.11)'
         required: false
-        default: '1.21.5 1.21.6 1.21.11'
+        default: '26.2 1.21.5 1.21.6 1.21.11'
 
 permissions:
   contents: write
@@ -18,11 +18,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          # JDK 25 is required to compile the 26.2 module (Paper 26.x ships Java 25 bytecode).
+          java-version: '25'
 
       - name: Build shade jars
         run: mvn -q -DskipTests clean package

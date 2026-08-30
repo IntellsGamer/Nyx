@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.idebugger.nyx</groupId>
+        <artifactId>Nyx</artifactId>
+        <version>1.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>Nyx-26.2</artifactId>
+    <version>26.2</version>
+    <packaging>jar</packaging>
+
+    <name>Nyx 26.2</name>
+    <description>Nyx — Nullify Your Xploits. Specialized build for Paper 26.2 (PacketEvents 2.13.x).</description>
+
+    <properties>
+        <nyx.version>1.1.0</nyx.version>
+        <mc.version>26.2</mc.version>
+        <paper.version>26.2.build.111-stable</paper.version>
+        <packetevents.version>2.13.0</packetevents.version>
+        <adventure.version>5.2.0</adventure.version>
+        <!-- Paper 26.x ships Java 25 bytecode, so this module must be compiled on JDK 25. -->
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+    </properties>
+</project>
