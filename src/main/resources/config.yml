@@ -209,9 +209,9 @@ checks:
     max-violations: 20
     sensitivity: 0.8
     actions:
-      - "alert"
-      - "setback @ 10"
-      - "kick @ 20"
+      - alert
+      - setback @ 8
+      - kick @ 16
 
   boatfly:
     enabled: true
