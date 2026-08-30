@@ -5,6 +5,11 @@ import dev.idebugger.nyx.checks.Check;
 import dev.idebugger.nyx.checks.CheckData;
 import dev.idebugger.nyx.data.NyxPlayerData;
 import dev.idebugger.nyx.data.NyxPlayerData.IceType;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +28,8 @@ public class SpeedCheck extends Check {
     // jitter, and sustained over-limit movement gets flagged right away.
     private static final int OVER_LIMIT_TICKS_TO_FLAG = 3;
     private static final int OVER_LIMIT_DECAY_TICKS = 3;
+
+    private static final double BASE_MOVEMENT_SPEED = 0.1;
 
     private final Map<UUID, Integer> overLimitTicks = new ConcurrentHashMap<>();
 
@@ -80,15 +87,21 @@ public class SpeedCheck extends Check {
         // from ice is never clamped until the real speed has fallen back down.
         double momentum = data.getIceMomentumAllowance();
 
+        // The Speed potion effect (+20% per level) and a raised movement-speed
+        // attribute both legitimately raise the ground speed a player can reach.
+        // Scale the vanilla caps by that boost so buffed players aren't mistaken
+        // for cheaters. Momentum is a real measured speed, so it is never scaled.
+        double boost = speedBoost(data);
+
         if (data.isOnGround() || data.isLastOnGround()) {
             IceType ice = data.getIceType();
             if (ice != null && ice != IceType.NONE) {
                 return Math.max(ice.getMaxSpeed(), momentum);
             }
-            if (data.isOnSlime()) return Math.max(0.40, momentum);
-            if (data.isOnSoulSand()) return Math.max(0.20, momentum);
-            if (data.isSneaking()) return Math.max(0.10, momentum);
-            return Math.max(data.isSprinting() ? 0.35 : 0.28, momentum);
+            if (data.isOnSlime()) return Math.max(0.40 * boost, momentum);
+            if (data.isOnSoulSand()) return Math.max(0.20 * boost, momentum);
+            if (data.isSneaking()) return Math.max(0.10 * boost, momentum);
+            return Math.max((data.isSprinting() ? 0.35 : 0.28) * boost, momentum);
         }
 
         // Still airborne over the ice itself: sprint-jumps on ice legitimately
@@ -103,5 +116,29 @@ public class SpeedCheck extends Check {
         }
 
         return Math.max(0.45, momentum);
+    }
+
+    /**
+     * Ground-speed multiplier from the movement-speed attribute and the Speed
+     * potion effect. Returns 1.0 for an unbuffed player, so the vanilla caps are
+     * left untouched. The movement-speed attribute has a base of 0.1 and scales
+     * walk/sprint speed proportionally, and the Speed effect adds +20% per level
+     * (Speed I = 1.2x, Speed II = 1.4x, ...).
+     */
+    private double speedBoost(NyxPlayerData data) {
+        Player player = data.getPlayer();
+        double boost = 1.0;
+
+        AttributeInstance attr = player.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (attr != null && attr.getValue() > BASE_MOVEMENT_SPEED) {
+            boost *= attr.getValue() / BASE_MOVEMENT_SPEED;
+        }
+
+        PotionEffect speed = player.getPotionEffect(PotionEffectType.SPEED);
+        if (speed != null) {
+            boost *= 1.0 + 0.2 * (speed.getAmplifier() + 1);
+        }
+
+        return boost;
     }
 }

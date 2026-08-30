@@ -74,6 +74,13 @@ bypass:
 #                   to a time-based ban (0 = never ban via setbacks)
 #  kicks-to-ban:   how many kicks on the SAME check before it escalates to a
 #                  time-based ban (0 = never ban via kicks)
+#  setbacks-interval: ms to wait between repeat setbacks when the highest
+#                   punishment configured for this check IS a setback (no
+#                   kick/ban above it). When a kick/ban IS configured above a
+#                   setback, the setback fires only once, on the first crossing
+#                   of its threshold (so a player at VL 15 with
+#                   "setback @ 10, kick @ 20" gets the one setback at 10, then
+#                   only alerts until the kick at 20 — not a setback every VL).
 #  actions:       Available: alert, setback, kick, ban, cmd:<command>
 #                 Use " @ N" suffix to delay the action until VL ≥ N
 #                 Examples:

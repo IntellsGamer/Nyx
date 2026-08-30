@@ -229,7 +229,8 @@ public final class NyxConfig {
                 section.getDouble("sensitivity", 0.7),
                 actions,
                 section.getInt("setbacks-to-ban", defaultSetbacksToBan(checkName)),
-                section.getInt("kicks-to-ban", defaultKicksToBan(checkName))
+                section.getInt("kicks-to-ban", defaultKicksToBan(checkName)),
+                section.getLong("setbacks-interval", 2000)
             );
             checkConfigs.put(checkName, cc);
         }
@@ -322,6 +323,7 @@ public final class NyxConfig {
         double sensitivity,
         List<String> actions,
         int setbacksToBan,
-        int kicksToBan
+        int kicksToBan,
+        long setbackInterval
     ) {}
 }

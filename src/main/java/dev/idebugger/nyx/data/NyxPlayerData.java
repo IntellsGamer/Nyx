@@ -24,6 +24,14 @@ public final class NyxPlayerData {
     private final ConcurrentHashMap<String, Integer> kickCounts;
     private final ConcurrentHashMap<Integer, Boolean> pendingTransactions;
 
+    // One-shot setback tracking: the highest "setback @ N" threshold already acted
+    // on for each check during the current sustained-cheat period. Re-armed when
+    // the player's VL falls back below the threshold.
+    private final ConcurrentHashMap<String, Integer> setbackFired = new ConcurrentHashMap<>();
+    // Last time a setback was applied per check, for the cooldown path used when a
+    // setback is the highest punishment configured (no kick/ban above it).
+    private final ConcurrentHashMap<String, Long> lastSetbackTime = new ConcurrentHashMap<>();
+
     private Vector velocity;
     private Vector acceleration;
     private double deltaX, deltaY, deltaZ;
@@ -598,6 +606,11 @@ public final class NyxPlayerData {
 
     public ConcurrentHashMap<String, Integer> getSetbackCountMap() { return setbackCounts; }
     public ConcurrentHashMap<String, Integer> getKickCountMap() { return kickCounts; }
+
+    public int getSetbackFired(String check) { return setbackFired.getOrDefault(check, 0); }
+    public void setSetbackFired(String check, int atVl) { setbackFired.put(check, atVl); }
+    public long getLastSetbackTime(String check) { return lastSetbackTime.getOrDefault(check, 0L); }
+    public void setLastSetbackTime(String check, long time) { lastSetbackTime.put(check, time); }
 
     public int incrementKickCount(String check) {
         return kickCounts.merge(check, 1, Integer::sum);
