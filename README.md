@@ -108,7 +108,7 @@ A check can escalate to a **time-based ban** through three independent paths:
 2. **Repeated setbacks** — the same check setbacks the player `setbacks-to-ban` times (counts never decay, so the floor is exactly that many offences no matter how far apart).
 3. **Repeated kicks** — the same check kicks the player `kicks-to-ban` times. Less mercy than setbacks: after a few kicks they have clearly been caught repeatedly.
 
-Actions fire once per upward crossing of their VL threshold, so violations hovering around a threshold (thanks to decay) cannot inflate the escalation counts. After an auto-ban both the setback and kick floors reset to zero, so a released offender starts clean.
+Actions fire on **every** flag where the violation level is at or above their threshold (not just once per crossing), so a sustained cheat keeps re-triggering the setback/kick — and its escalation count — until the `setbacks-to-ban` / `kicks-to-ban` floor turns it into a ban. Violation levels still decay each second for forgiveness, but the escalation counts themselves never decay and always survive reconnects. After an auto-ban both the setback and kick floors reset to zero, so a released offender starts clean.
 
 `punishment.ban.autoban-enabled` is the global master switch for all three paths, while per-check `autoban: false` disables them for just that check. The manual `/nyx ban` command is never affected. Setback and kick escalation counts are persisted in SQLite, so **they survive kicks and reconnects** — a player cannot escape a ban by simply logging back in.
 

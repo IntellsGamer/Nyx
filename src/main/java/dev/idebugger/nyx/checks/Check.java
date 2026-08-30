@@ -78,7 +78,6 @@ public abstract class Check {
     public void flag(NyxPlayerData data, String info) {
         if (data == null) return;
 
-        int prevVl = data.getViolations(configKey);
         data.addViolation(configKey);
         int vl = data.getViolations(configKey);
 
@@ -99,11 +98,13 @@ public abstract class Check {
             String actionType = parts[0].trim().toLowerCase();
             int atVl = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : Integer.MAX_VALUE;
 
-            // Fire on the upward crossing of the threshold only (prevVl < atVl <= vl).
-            // Matching on exact equality re-triggers endlessly when violation decay
-            // makes the value hover around the threshold, inflating the escalation
-            // counts and delaying the setback-to-ban / kick-to-ban floors.
-            if (prevVl < atVl && vl >= atVl) {
+            // Fire whenever the violation level is AT or ABOVE the threshold,
+            // not just on some exact/once crossing. A sustained cheat keeps
+            // re-triggering the setback/kick (each incrementing its escalation
+            // count), so the setbacks-to-ban / kicks-to-ban floors are reached
+            // deterministically. Inflation via hovering is impossible because
+            // the escalation counts no longer decay.
+            if (vl >= atVl) {
                 // Repeated setbacks OR kicks on the SAME check signal someone
                 // persistently fighting the anticheat. After the per-check
                 // threshold we escalate the punishment into a time-based ban
