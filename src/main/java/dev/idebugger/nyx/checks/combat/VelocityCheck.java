@@ -36,15 +36,20 @@ public class VelocityCheck extends Check {
 
     private static final int MAX_BUFFER_TICKS = 12;
 
-    private static final double MIN_HORIZ_RATIO = 0.70;
-    private static final double MAX_HORIZ_RATIO = 1.9;
+    // Lenient on purpose: frictional ticks naturally eat less of the applied
+    // velocity, so only a sustained majority of the 12-tick window flags. The
+    // real deterrent is the knockback re-applied on every flag, not the count.
+    private static final double MIN_HORIZ_RATIO = 0.65;
+    private static final double MAX_HORIZ_RATIO = 2.0;
 
     /** Applied velocity magnitude above which we grant extra consumption tolerance (wind charges etc.). */
     private static final double STRONG_KNOCKBACK = 1.8;
     private static final double STRONG_TOLERANCE = 1.25;
 
-    private static final double FLAG_THRESHOLD = 2.0;
-    private static final double FLAG_THRESHOLD_LOW_SENSITIVITY = 2.75;
+    private static final double FLAG_THRESHOLD = 3.0;
+    private static final double FLAG_THRESHOLD_LOW_SENSITIVITY = 4.0;
+    private static final double BAD_TICK_WEIGHT = 0.5;
+    private static final double GOOD_TICK_DECAY = 0.35;
 
     public VelocityCheck(Nyx plugin) {
         super(plugin);
@@ -101,31 +106,26 @@ public class VelocityCheck extends Check {
         double minHoriz = MIN_HORIZ_RATIO - (1.0 - sensitivity) * 0.15;
         if (strong) minHoriz *= STRONG_TOLERANCE;
 
+        // One contribution per tick, from the worst of the two signals. Adding
+        // horizontal and vertical independently is what let the old check ladder
+        // to a flag in ~2 ticks and trigger kicks almost immediately.
         boolean anyHorizontal = false;
+        boolean horizBad = false;
+        boolean vertBad = false;
 
         if (expectedHoriz > 0.01) {
             anyHorizontal = true;
             double observed = Math.min(actualHoriz / expectedHoriz, MAX_HORIZ_RATIO);
-
-            // A single under-consumption tick (ground friction is ~0.6, so only
-            // ~60% moves on tick 1) is normal; a sustained under-consumption is not.
-            if (observed < minHoriz) {
-                data.addVelocityBuffer(1.0);
-            } else {
-                data.addVelocityBuffer(-0.35);
-            }
-        } else {
-            data.addVelocityBuffer(-0.5);
+            horizBad = observed < minHoriz;
+        }
+        if (expectedVert > 0.05 && !data.isOnGround()) {
+            vertBad = actualVert / expectedVert < minHoriz;
         }
 
-        if (expectedVert > 0.05 && !data.isOnGround()) {
-            // vertical knockback: actual upward (or reduced downward) compared to expected
-            double vertRatio = actualVert / expectedVert;
-            if (vertRatio < minHoriz) {
-                data.addVelocityBuffer(0.9);
-            } else {
-                data.addVelocityBuffer(-0.35);
-            }
+        if (horizBad || vertBad) {
+            data.addVelocityBuffer(BAD_TICK_WEIGHT);
+        } else {
+            data.addVelocityBuffer(-GOOD_TICK_DECAY);
         }
 
         flagFromBuffer(data, expectedHoriz, expectedVert, actualHoriz, actualVert, anyHorizontal);
@@ -179,7 +179,7 @@ public class VelocityCheck extends Check {
             // straight back onto the player, on the main thread.
             applyKnockback(data);
 
-            data.resetVelocityBuffer(1.0);
+            data.resetVelocityBuffer(0.0);
         }
     }
 
