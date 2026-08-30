@@ -71,3 +71,22 @@ jobs:
           # Commit and push all added JARs
           git commit -m "Update Nyx JARs for versions: ${{ inputs.versions }} (v$NYX_VERSION)"
           git push
+
+          # After a successful commit+push, remove stale release JARs (older plugin
+          # versions) from the repo files only. GitHub Releases are left untouched so
+          # every published version stays downloadable there.
+          removed=""
+          for v in ${{ inputs.versions }}; do
+            for old in "$v"/Nyx-"$v"+*.jar "$v"/target/Nyx-"$v"+*.jar; do
+              [ -e "$old" ] || continue
+              if [ "$(basename "$old")" != "Nyx-$v+$NYX_VERSION.jar" ]; then
+                git rm --quiet "$old"
+                removed="$removed $old"
+              fi
+            done
+          done
+
+          if [ -n "$removed" ]; then
+            git commit -m "Remove stale release JARs for versions: ${{ inputs.versions }} (v$NYX_VERSION)"
+            git push
+          fi
