@@ -28,7 +28,7 @@ jobs:
       - name: Build shade jars
         run: mvn -q -DskipTests clean package
 
-      - name: Publish / update releases
+      - name: Publish / update releases and store in repo
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -38,6 +38,11 @@ jobs:
           # releases stay tagged by the Minecraft version (1.21.5/1.21.6/1.21.11).
           NYX_VERSION=$(grep -oPm1 '(?<=<version>)[0-9]+\.[0-9]+\.[0-9]+' pom.xml)
           echo "Plugin version: $NYX_VERSION"
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
           for v in ${{ inputs.versions }}; do
             jar="$GITHUB_WORKSPACE/$v/target/Nyx-$v+$NYX_VERSION.jar"
 
@@ -46,6 +51,12 @@ jobs:
               exit 1
             fi
 
+            # Copy jar to version folder in repo
+            repo_jar="$GITHUB_WORKSPACE/$v/Nyx-$v+$NYX_VERSION.jar"
+            cp "$jar" "$repo_jar"
+            git add "$repo_jar"
+
+            # Handle GitHub Release
             if gh release view "$v" >/dev/null 2>&1; then
               echo "Release $v exists -> updating assets with --clobber"
               gh release upload "$v" "$jar" --clobber
@@ -56,3 +67,7 @@ jobs:
                 --notes "Nyx $v+$NYX_VERSION — Nullify Your Xploits. Specialized build for Paper $v."
             fi
           done
+          
+          # Commit and push all added JARs
+          git commit -m "Update Nyx JARs for versions: ${{ inputs.versions }} (v$NYX_VERSION)"
+          git push
