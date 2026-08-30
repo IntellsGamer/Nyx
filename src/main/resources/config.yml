@@ -113,9 +113,9 @@ checks:
     sensitivity: 0.8
     actions:
       - "alert @ 4"
-      - "setback @ 20"
-      - "kick @ 50"
-      - "ban @ 75"
+      - "setback @ 10"
+      - "kick @ 30"
+      - "ban @ 40"
 
   fly:
     enabled: true
