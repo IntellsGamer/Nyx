@@ -42,7 +42,9 @@ public final class NyxPlayerData {
     private long lastWaterTime;
     private long lastLavaTime;
     /** How quickly the ice-momentum speed allowance fades away per movement packet. */
-    public static final double ICE_MOMENTUM_DECAY = 0.98;
+    public static final double ICE_MOMENTUM_DECAY = 0.985;
+    /** Highest speed gain ice alone can realistically hand out; above this is a cheat. */
+    public static final double ICE_MOMENTUM_MAX = 2.6;
     /** Extra speed a player may keep riding while coasting off ice. */
     private double iceMomentumAllowance = 0;
     private boolean onSlime;
@@ -464,27 +466,32 @@ public final class NyxPlayerData {
      * Updates the decaying ice-momentum speed allowance.
      *
      * While standing (or sprint-jumping) on ice the player legitimately gathers
-     * far more horizontal speed than the vanilla cap. After leaving the ice the
-     * player keeps riding that speed while sprinting/jumping — bunny-hopping
-     * barely bleeds it — so instead of a fixed time window the allowance acts as
-     * an envelope: it is refilled to the speed actually reached on ice, and away
-     * from ice it only sags slowly toward whatever the player is still doing.
-     * A player who slows down brings the allowance back to zero; a player who
-     * somehow exceeds the envelope is a cheat.
+     * far more horizontal speed than the vanilla cap. That allowance is only
+     * refilled while the feet are actually on ice; once off ice it fades away on
+     * a fixed timer regardless of how the player is moving. This gives a real
+     * post-ice coast (a legit player's own speed falls faster than the slow
+     * decay) while keeping the check sharp: a player who keeps exceeding the
+     * fading allowance — i.e. sustains a speed the ice never gave them — gets
+     * caught. The ceiling means even an on-ice booster can be flagged as soon as
+     * their speed passes what ice can ever provide.
      */
     public void tickIceMomentum() {
         if (iceType != IceType.NONE) {
             // Keep at least the plain ice skating speed, but otherwise borrow
             // the real speed the player is achieving so sprint-jumps on ice are
-            // never mistreated.
+            // never mistreated. Clamp to what ice alone can actually deliver.
             double floor = switch (iceType) {
                 case BLUE_ICE -> 1.30;
                 case PACKED_ICE -> 0.95;
                 default -> 0.80; // ICE, FROSTED_ICE
             };
-            iceMomentumAllowance = Math.max(iceMomentumAllowance, Math.max(floor, horizontalSpeed));
+            double refill = Math.max(iceMomentumAllowance, Math.max(floor, horizontalSpeed));
+            iceMomentumAllowance = Math.min(ICE_MOMENTUM_MAX, refill);
         } else {
-            iceMomentumAllowance = Math.max(horizontalSpeed, iceMomentumAllowance * ICE_MOMENTUM_DECAY);
+            // One-way decay only: the player's current speed must NOT refill the
+            // allowance or any sustained cheat speed would simply become its own
+            // allowance and nothing would ever flag.
+            iceMomentumAllowance *= ICE_MOMENTUM_DECAY;
             if (iceMomentumAllowance < 0.05) {
                 iceMomentumAllowance = 0;
             }

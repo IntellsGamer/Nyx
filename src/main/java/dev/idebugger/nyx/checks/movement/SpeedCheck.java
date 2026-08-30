@@ -20,8 +20,8 @@ public class SpeedCheck extends Check {
     // caps allow while it fades out. Allow it to express itself and only react
     // once the player has kept exceeding the limit for several consecutive
     // ticks — a single coast tick over the cap is never a cheat.
-    private static final int OVER_LIMIT_TICKS_TO_FLAG = 6;
-    private static final int OVER_LIMIT_DECAY_TICKS = 2;
+    private static final int OVER_LIMIT_TICKS_TO_FLAG = 8;
+    private static final int OVER_LIMIT_DECAY_TICKS = 3;
 
     private final Map<UUID, Integer> overLimitTicks = new ConcurrentHashMap<>();
 
