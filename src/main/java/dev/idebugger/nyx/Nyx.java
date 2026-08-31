@@ -20,6 +20,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.UUID;
@@ -141,6 +142,17 @@ public final class Nyx extends JavaPlugin implements Listener {
             persistPlayerViolations(player.getUniqueId());
         }
         playerDataManager.removeData(player);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        Player player = event.getPlayer();
+        NyxPlayerData data = playerDataManager.getData(player);
+        if (data != null) {
+            data.setLastGamemodeChangeTime(System.currentTimeMillis());
+            data.resetAccumulatedPacketFall();
+            data.setWurstPatternDetected(false);
+        }
     }
 
     private void startViolationDecayTask() {

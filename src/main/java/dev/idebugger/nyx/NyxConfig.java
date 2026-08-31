@@ -32,6 +32,10 @@ public final class NyxConfig {
     private String unbanCommand;
     private boolean autobanEnabled;
     private boolean persistGlobally;
+    private long gamemodeGracePeriodMs;
+    private long knockbackGracePeriodMs;
+    private long setbackDecayIntervalMs;
+    private long kickDecayIntervalMs;
 
     private final Map<String, CheckConfig> checkConfigs = new LinkedHashMap<>();
 
@@ -76,6 +80,10 @@ public final class NyxConfig {
         this.unbanCommand = config.getString("punishment.ban.litebans-unban-command", "litebans:unban %player%");
         this.autobanEnabled = config.getBoolean("punishment.ban.autoban-enabled", true);
         this.persistGlobally = config.getBoolean("storage.persist-global-violations", true);
+        this.gamemodeGracePeriodMs = config.getLong("bypass.gamemode-grace-period", 5000);
+        this.knockbackGracePeriodMs = config.getLong("bypass.knockback-grace-period", 1000);
+        this.setbackDecayIntervalMs = config.getLong("punishment.decay.setback-interval", 180000);
+        this.kickDecayIntervalMs = config.getLong("punishment.decay.kick-interval", 300000);
 
         loadCheckConfigs();
         mergeDefaultConfig();
@@ -266,6 +274,10 @@ public final class NyxConfig {
     public String getUnbanCommand() { return unbanCommand; }
     public boolean isAutobanEnabled() { return autobanEnabled; }
     public boolean isPersistGlobally() { return persistGlobally; }
+    public long getGamemodeGracePeriodMs() { return gamemodeGracePeriodMs; }
+    public long getKnockbackGracePeriodMs() { return knockbackGracePeriodMs; }
+    public long getSetbackDecayIntervalMs() { return setbackDecayIntervalMs; }
+    public long getKickDecayIntervalMs() { return kickDecayIntervalMs; }
 
     /**
      * Parses a duration string like "3d", "30m", "12h", "2w", "45s" into

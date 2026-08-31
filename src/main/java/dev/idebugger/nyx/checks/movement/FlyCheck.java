@@ -64,6 +64,12 @@ public class FlyCheck extends Check {
         if (data.isClimbing()) return;
         if (data.getPlayer().hasPotionEffect(PotionEffectType.SLOW_FALLING)) return;
 
+        // Knockback re-applied by the velocity check temporarily launches the
+        // player upward. Skip detection until the grace window expires to avoid
+        // false-positive fly VL inflation right after a legit hit.
+        long kbGrace = plugin.getNyxConfig().getKnockbackGracePeriodMs();
+        if (kbGrace > 0 && System.currentTimeMillis() - data.getLastKnockbackAppliedTime() < kbGrace) return;
+
         // Swimming is server-authoritative while the player is on the surface;
         // keep skipping until the swim state fully winds down as well.
         if (data.isSwimming()) return;

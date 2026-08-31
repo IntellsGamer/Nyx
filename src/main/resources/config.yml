@@ -59,6 +59,13 @@ bypass:
   worlds: []
   # Respect nyx.bypass.* permissions
   permission-bypass: true
+  # Grace period (ms) after switching gamemodes to suppress movement checks
+  # (especially NoFall). Prevents false flags when leaving creative/spectator.
+  gamemode-grace-period: 5000
+  # Grace period (ms) after knockback is re-applied by the velocity check.
+  # Prevents the fly check from inflating VL when the player is launched
+  # upward by the correction knockback.
+  knockback-grace-period: 1000
 
 # +-----------------------------------------------------------------------+
 #  CHECKS  —  threshold, actions                                          |
@@ -102,7 +109,8 @@ bypass:
 #    3. REPEATED KICKS — the same check kicks the player `kicks-to-ban` times.
 #       Less mercy by default: after a handful of kicks they've clearly been
 #       caught repeatedly, so the ban threshold is lower than setbacks.
-#  Because VL/setback/kick counts decay and persist, only genuine, ongoing
+#  Because VL/setback/kick counts decay (VL per check setting, setback/kick
+#  per punishment.decay interval) and persist, only genuine, ongoing
 #  cheating accumulates enough to trigger a ban.
 # +-----------------------------------------------------------------------+
 
@@ -614,6 +622,15 @@ punishment:
     # If LiteBans is installed Nyx uses this console command to unban
     # (used by /nyx unban). Placeholders: %player%
     litebans-unban-command: "litebans:unban %player%"
+  # Escalation decay: periodically reduce setback and kick counts so
+  # occasional slip-ups don't accumulate into a ban forever.
+  decay:
+    # How often (ms) one setback is removed from each check's setback count.
+    # Set to 0 to disable decay (counts never decrease). Default: 3 minutes.
+    setback-interval: 180000
+    # How often (ms) one kick is removed from each check's kick count.
+    # Set to 0 to disable decay (counts never decrease). Default: 5 minutes.
+    kick-interval: 300000
 
 storage:
   # Persist global violation levels across reconnects and server restarts

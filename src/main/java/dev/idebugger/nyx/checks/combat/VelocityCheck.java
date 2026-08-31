@@ -220,6 +220,8 @@ public class VelocityCheck extends Check {
         Player player = data.getPlayer();
         if (player == null || !player.isOnline()) return;
 
+        data.setLastKnockbackAppliedTime(System.currentTimeMillis());
+
         plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
             if (!player.isOnline()) return;
             player.setVelocity(applied.clone());

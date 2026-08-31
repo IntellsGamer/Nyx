@@ -84,6 +84,13 @@ public class NoFallCheck extends Check {
         if (player.isFlying()) return;
         if (data.isInVehicle()) return;
 
+        long gamemodeGrace = plugin.getNyxConfig().getGamemodeGracePeriodMs();
+        if (gamemodeGrace > 0 && System.currentTimeMillis() - data.getLastGamemodeChangeTime() < gamemodeGrace) {
+            data.resetAccumulatedPacketFall();
+            data.setWurstPatternDetected(false);
+            return;
+        }
+
         ItemStack chest = player.getInventory().getChestplate();
         boolean hasElytra = chest != null && chest.getType() == Material.ELYTRA;
         if (hasElytra && data.isGliding()) {

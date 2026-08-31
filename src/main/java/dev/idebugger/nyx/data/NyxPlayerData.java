@@ -114,6 +114,11 @@ public final class NyxPlayerData {
     private int serverAirTicks;
     private double serverFallDistance;
 
+    private long lastGamemodeChangeTime;
+    private long lastKnockbackAppliedTime;
+    private long lastSetbackDecayTime;
+    private long lastKickDecayTime;
+
     private int lastAttackedEntityId = -1;
     private boolean hasInteractedThisTick;
     private int interactedEntitiesThisTick;
@@ -290,11 +295,20 @@ public final class NyxPlayerData {
             int newVl = vl - decay;
             return Math.max(newVl, 0);
         });
-        // Setback/kick counts are lifetime escalators and never decay. They are
-        // mirrored to SQLite (persistEscalationCounts) so a player cannot reset
-        // their punishment floor by briefly logging out; the third kick / fifth
-        // setback always triggers the ban regardless of how much time passed
-        // between offences.
+
+        long now = System.currentTimeMillis();
+        long setbackInterval = plugin.getNyxConfig().getSetbackDecayIntervalMs();
+        long kickInterval = plugin.getNyxConfig().getKickDecayIntervalMs();
+
+        if (setbackInterval > 0 && now - lastSetbackDecayTime >= setbackInterval) {
+            lastSetbackDecayTime = now;
+            setbackCounts.replaceAll((check, count) -> Math.max(0, count - 1));
+        }
+
+        if (kickInterval > 0 && now - lastKickDecayTime >= kickInterval) {
+            lastKickDecayTime = now;
+            kickCounts.replaceAll((check, count) -> Math.max(0, count - 1));
+        }
     }
 
     public void addViolation(String check) {
@@ -657,6 +671,18 @@ public final class NyxPlayerData {
     public void setVehicleForward(float v) { this.vehicleForward = v; }
     public float getVehicleHorizontal() { return vehicleHorizontal; }
     public void setVehicleHorizontal(float v) { this.vehicleHorizontal = v; }
+
+    public long getLastGamemodeChangeTime() { return lastGamemodeChangeTime; }
+    public void setLastGamemodeChangeTime(long v) { this.lastGamemodeChangeTime = v; }
+
+    public long getLastKnockbackAppliedTime() { return lastKnockbackAppliedTime; }
+    public void setLastKnockbackAppliedTime(long v) { this.lastKnockbackAppliedTime = v; }
+
+    public long getLastSetbackDecayTime() { return lastSetbackDecayTime; }
+    public void setLastSetbackDecayTime(long v) { this.lastSetbackDecayTime = v; }
+
+    public long getLastKickDecayTime() { return lastKickDecayTime; }
+    public void setLastKickDecayTime(long v) { this.lastKickDecayTime = v; }
 
     public boolean isSentAttack() { return sentAttack; }
     public void setSentAttack(boolean v) { this.sentAttack = v; }
