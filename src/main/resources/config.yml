@@ -120,8 +120,8 @@ checks:
     enabled: true
     description: "Detects horizontal/vertical speed above vanilla limits"
     autoban: true
-    setbacks-to-ban: 8
-    kicks-to-ban: 3
+    setbacks-to-ban: 5
+    kicks-to-ban: 2
     threshold: 10
     decay: 2
     max-violations: 50
