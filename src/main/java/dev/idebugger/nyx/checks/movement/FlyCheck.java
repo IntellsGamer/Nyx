@@ -36,6 +36,14 @@ public class FlyCheck extends Check {
     // legit but looks exactly like an ascend-hack, so skip the launch window.
     private static final long RIPTIDE_GRACE_MS = 4000;
 
+    // In a tight vertical space (low ceiling, ~1-2 blocks of headroom) rapidly
+    // pressing jump makes the player bounce off the ceiling and back down every
+    // few ticks. The ceiling cuts each jump arc early, so the observed deltaY
+    // never follows the vanilla air-drag curve and the check flags a false
+    // "fly". Skip the whole check whenever there's solid ground above so those
+    // convoluted ceiling-bounce motions are never treated as flight.
+    private static final int MAX_HEADROOM_BLOCKS = 3;
+
     public FlyCheck(Nyx plugin) {
         super(plugin);
     }
@@ -82,6 +90,11 @@ public class FlyCheck extends Check {
         // Powdered snow / cobweb either below (sinking out of it) or within the
         // 2-block reach: the client's vertical velocity is not trustworthy here.
         if (isNearWebOrPowderedSnow(loc)) return;
+
+        // Low ceiling overhead: bouncing up into solid blocks makes vertical
+        // motion erratic and untrustworthy. Skip here so rapid jumps in tight
+        // spaces don't false flag as flight.
+        if (isLowHeadroom(loc)) return;
 
         if (data.isOnGround()) return;
 
@@ -155,6 +168,28 @@ public class FlyCheck extends Check {
                         return true;
                     }
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * True when solid ground sits within MAX_HEADROOM_BLOCKS above the player.
+     * In that tight space every jump arc is cut short by the ceiling, so the
+     * vertical velocity is dominated by ceiling collisions rather than vanilla
+     * gravity/air-drag and must not be judged as flight.
+     */
+    private boolean isLowHeadroom(Location loc) {
+        World world = loc.getWorld();
+        int x = loc.getBlockX();
+        int z = loc.getBlockZ();
+        int eyeY = (int) Math.floor(loc.getY() + 1.62);
+        int topY = eyeY + MAX_HEADROOM_BLOCKS;
+
+        for (int y = eyeY + 1; y <= topY; y++) {
+            Block block = world.getBlockAt(x, y, z);
+            if (block.getType().isCollidable()) {
+                return true;
             }
         }
         return false;
