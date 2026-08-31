@@ -22,6 +22,12 @@ public class SpeedCheck extends Check {
     private static final long GLIDE_GRACE_MS = 3000;
     private static final long RIPTIDE_GRACE_MS = 4000;
 
+    // Knockback (natural or re-applied by the velocity check) shoves the
+    // player backward faster than walking. If they keep moving/jumping in that
+    // direction the horizontal speed reads as over-cap for a few ticks. Skip the
+    // check until the momentum settles so a legit hit can't flag as speed.
+    private static final long KNOCKBACK_GRACE_MS = 2000;
+
     // Momentum picked up on ice legitimately carries further than the vanilla
     // caps allow while it fades out. The allowance already covers that coast, so
     // the extra grace window is kept tiny: only a couple of ticks of slop for
@@ -53,6 +59,12 @@ public class SpeedCheck extends Check {
         if (now - data.getLastFireworkTime() < FIREWORK_GRACE_MS) return;
         if (now - data.getLastGlideTime() < GLIDE_GRACE_MS) return;
         if (now - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
+
+        long kbGrace = plugin.getNyxConfig().getKnockbackGracePeriodMs();
+        if (kbGrace > 0) {
+            long lastKb = Math.max(data.getLastKnockbackAppliedTime(), data.getLastVelocityTime());
+            if (now - lastKb < Math.max(kbGrace, KNOCKBACK_GRACE_MS)) return;
+        }
 
         double speed = data.getHorizontalSpeed();
         if (speed < 0.01) return;
