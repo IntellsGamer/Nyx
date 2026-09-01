@@ -6,7 +6,7 @@
 
     <groupId>dev.idebugger.nyx</groupId>
     <artifactId>Nyx</artifactId>
-    <version>1.2.5</version>
+    <version>1.2.6</version>
     <packaging>pom</packaging>
 
     <name>Nyx</name>
@@ -25,7 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <nyx.version>1.2.5</nyx.version>
+        <nyx.version>1.2.6</nyx.version>
         <mc.version>1.21.5</mc.version>
         <paper.version>1.21.5-R0.1-SNAPSHOT</paper.version>
         <packetevents.version>2.8.0</packetevents.version>
@@ -84,10 +84,16 @@
                                     <pattern>io.github.retrooper.packetevents</pattern>
                                     <shadedPattern>dev.idebugger.nyx.libs.packetevents.io.github.retrooper.packetevents</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>net.kyori.adventure.nbt</pattern>
+                                    <shadedPattern>dev.idebugger.nyx.libs.kyori.adventure.nbt</shadedPattern>
+                                </relocation>
                             </relocations>
                             <artifactSet>
                                 <excludes>
-                                    <exclude>net.kyori:*</exclude>
+                                    <exclude>net.kyori:adventure-api</exclude>
+                                    <exclude>net.kyori:adventure-text-*</exclude>
+                                    <exclude>net.kyori:examination-*</exclude>
                                 </excludes>
                             </artifactSet>
                             <filters>
@@ -147,6 +153,13 @@
             <artifactId>adventure-api</artifactId>
             <version>${adventure.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-nbt</artifactId>
+            <version>${adventure.version}</version>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
