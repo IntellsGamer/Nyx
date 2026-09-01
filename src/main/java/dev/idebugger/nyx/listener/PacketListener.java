@@ -413,133 +413,136 @@ public final class PacketListener extends PacketListenerAbstract {
         }
 
         var pktLoc = flyingPacket.getLocation();
-
-        double x, y, z;
-        if (pktLoc != null) {
-            x = pktLoc.getX();
-            y = pktLoc.getY();
-            z = pktLoc.getZ();
-        } else {
-            org.bukkit.Location loc = player.getLocation();
-            x = loc.getX();
-            y = loc.getY();
-            z = loc.getZ();
-        }
-
-        float yaw = pktLoc != null ? pktLoc.getYaw() : player.getLocation().getYaw();
-        float pitch = pktLoc != null ? pktLoc.getPitch() : player.getLocation().getPitch();
-
         boolean onGround = flyingPacket.isOnGround();
         boolean isPositionPacket = type == PacketType.Play.Client.PLAYER_POSITION
                                 || type == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION;
 
-        data.setWasPositionPacket(isPositionPacket);
+        // All player / world access must happen on the owning region thread
+        // (Folia / Moonrise).  We extract only the raw packet data above and
+        // schedule the rest.
+        player.getScheduler().run(plugin, task -> {
+            if (!player.isOnline()) return;
 
-        if (isPositionPacket) {
-            data.setRawPacket(y, onGround);
-            data.updatePositionFromPacket(y, onGround);
-        } else {
-            data.setRawGround(onGround);
-        }
+            double x, y, z;
+            float yaw, pitch;
+            if (pktLoc != null) {
+                x = pktLoc.getX();
+                y = pktLoc.getY();
+                z = pktLoc.getZ();
+                yaw = pktLoc.getYaw();
+                pitch = pktLoc.getPitch();
+            } else {
+                Location loc = player.getLocation();
+                x = loc.getX();
+                y = loc.getY();
+                z = loc.getZ();
+                yaw = loc.getYaw();
+                pitch = loc.getPitch();
+            }
 
-        data.setPing(player.getPing());
+            data.setWasPositionPacket(isPositionPacket);
 
-        Location toLocation;
-        if (isPositionPacket) {
-            toLocation = new Location(player.getWorld(), x, y, z, yaw, pitch);
-            data.addMovementSnapshot(toLocation, onGround);
-        } else {
-            toLocation = player.getLocation();
-        }
-        data.addRotationSnapshot(yaw, pitch);
+            if (isPositionPacket) {
+                data.setRawPacket(y, onGround);
+                data.updatePositionFromPacket(y, onGround);
+            } else {
+                data.setRawGround(onGround);
+            }
 
-        long transactionId = data.getLastTransactionId() + 1;
-        data.recordTransaction(transactionId, System.currentTimeMillis());
+            data.setPing(player.getPing());
 
-        data.setInWater(player.isInWater());
-        data.setInLava(player.isInLava());
-        {
-            NyxPlayerData.IceType ice = detectIce(player.getWorld(), toLocation);
-            data.setIceType(ice);
-            data.setOnIce(ice != NyxPlayerData.IceType.NONE);
-            data.recordIce(ice);
-            // Refill/decay the ice-momentum speed allowance every movement tick.
-            data.tickIceMomentum();
-        }
-        {
-            boolean inWeb = false;
-            boolean inPowderedSnow = false;
-            int minX = (int) Math.floor(toLocation.getX() - 0.3);
-            int maxX = (int) Math.floor(toLocation.getX() + 0.3);
-            int minY = (int) Math.floor(toLocation.getY());
-            int maxY = (int) Math.floor(toLocation.getY() + 1.8);
-            int minZ = (int) Math.floor(toLocation.getZ() - 0.3);
-            int maxZ = (int) Math.floor(toLocation.getZ() + 0.3);
-            for (int bx = minX; bx <= maxX; bx++) {
-                for (int by = minY; by <= maxY; by++) {
-                    for (int bz = minZ; bz <= maxZ; bz++) {
-                        Material blockType = player.getWorld().getBlockAt(bx, by, bz).getType();
-                        if (blockType == org.bukkit.Material.COBWEB) {
-                            inWeb = true;
-                        } else if (blockType == org.bukkit.Material.POWDER_SNOW) {
-                            inPowderedSnow = true;
+            Location toLocation;
+            if (isPositionPacket) {
+                toLocation = new Location(player.getWorld(), x, y, z, yaw, pitch);
+                data.addMovementSnapshot(toLocation, onGround);
+            } else {
+                toLocation = player.getLocation();
+            }
+            data.addRotationSnapshot(yaw, pitch);
+
+            long transactionId = data.getLastTransactionId() + 1;
+            data.recordTransaction(transactionId, System.currentTimeMillis());
+
+            data.setInWater(player.isInWater());
+            data.setInLava(player.isInLava());
+            {
+                NyxPlayerData.IceType ice = detectIce(player.getWorld(), toLocation);
+                data.setIceType(ice);
+                data.setOnIce(ice != NyxPlayerData.IceType.NONE);
+                data.recordIce(ice);
+                data.tickIceMomentum();
+            }
+            {
+                boolean inWeb = false;
+                boolean inPowderedSnow = false;
+                int minX = (int) Math.floor(toLocation.getX() - 0.3);
+                int maxX = (int) Math.floor(toLocation.getX() + 0.3);
+                int minY = (int) Math.floor(toLocation.getY());
+                int maxY = (int) Math.floor(toLocation.getY() + 1.8);
+                int minZ = (int) Math.floor(toLocation.getZ() - 0.3);
+                int maxZ = (int) Math.floor(toLocation.getZ() + 0.3);
+                for (int bx = minX; bx <= maxX; bx++) {
+                    for (int by = minY; by <= maxY; by++) {
+                        for (int bz = minZ; bz <= maxZ; bz++) {
+                            Material blockType = player.getWorld().getBlockAt(bx, by, bz).getType();
+                            if (blockType == org.bukkit.Material.COBWEB) {
+                                inWeb = true;
+                            } else if (blockType == org.bukkit.Material.POWDER_SNOW) {
+                                inPowderedSnow = true;
+                            }
+                        }
+                    }
+                }
+                data.setInWeb(inWeb);
+                data.setInPowderedSnow(inPowderedSnow);
+            }
+            data.setGliding(player.isGliding());
+            data.setHandRaised(player.isHandRaised());
+            data.setSwimming(player.isSwimming());
+            data.setSneaking(player.isSneaking());
+            data.setSprinting(player.isSprinting());
+            boolean inVehicle = player.isInsideVehicle();
+            if (inVehicle && !data.isInVehicle()) {
+                data.setLastVehicleEnterTime(System.currentTimeMillis());
+            }
+            data.setInVehicle(inVehicle);
+
+            if (player.isInsideVehicle()) {
+                Entity vehicle = player.getVehicle();
+                if (vehicle instanceof Pig || vehicle instanceof Strider) {
+                    Material requiredItem = vehicle instanceof Pig ? Material.CARROT_ON_A_STICK : Material.WARPED_FUNGUS_ON_A_STICK;
+                    ItemStack main = player.getInventory().getItemInMainHand();
+                    ItemStack off = player.getInventory().getItemInOffHand();
+                    if (main.getType() != requiredItem && off.getType() != requiredItem) {
+                        EntityControlCheck ctrlCheck = plugin.getCheckManager().getCheck(EntityControlCheck.class);
+                        if (ctrlCheck != null && ctrlCheck.canRun(data)) {
+                            ctrlCheck.flag(data, "Missing " + requiredItem.name().toLowerCase());
                         }
                     }
                 }
             }
-            data.setInWeb(inWeb);
-            data.setInPowderedSnow(inPowderedSnow);
-        }
-        data.setGliding(player.isGliding());
-        data.setHandRaised(player.isHandRaised());
-        data.setSwimming(player.isSwimming());
-        data.setSneaking(player.isSneaking());
-        data.setSprinting(player.isSprinting());
-        boolean inVehicle = player.isInsideVehicle();
-        if (inVehicle && !data.isInVehicle()) {
-            data.setLastVehicleEnterTime(System.currentTimeMillis());
-        }
-        data.setInVehicle(inVehicle);
 
-        // EntityControl check: riding a rideable without control item
-        if (player.isInsideVehicle()) {
-            Entity vehicle = player.getVehicle();
-            if (vehicle instanceof Pig || vehicle instanceof Strider) {
-                Material requiredItem = vehicle instanceof Pig ? Material.CARROT_ON_A_STICK : Material.WARPED_FUNGUS_ON_A_STICK;
-                ItemStack main = player.getInventory().getItemInMainHand();
-                ItemStack off = player.getInventory().getItemInOffHand();
-                if (main.getType() != requiredItem && off.getType() != requiredItem) {
-                    EntityControlCheck ctrlCheck = plugin.getCheckManager().getCheck(EntityControlCheck.class);
-                    if (ctrlCheck != null && ctrlCheck.canRun(data)) {
-                        ctrlCheck.flag(data, "Missing " + requiredItem.name().toLowerCase());
+            if (data.isGlideWithoutJump()) {
+                data.setGlideWithoutJump(false);
+                if (data.getDeltaY() <= 0 && !player.isInWaterOrBubbleColumn()) {
+                    ElytraBCheck elytraB = plugin.getCheckManager().getCheck(ElytraBCheck.class);
+                    if (elytraB != null && elytraB.canRun(data)) {
+                        elytraB.flag(data, "No jump");
                     }
                 }
             }
-        }
 
-        // ElytraB: started gliding without a jump
-        if (data.isGlideWithoutJump()) {
-            data.setGlideWithoutJump(false);
-            if (data.getDeltaY() <= 0 && !player.isInWaterOrBubbleColumn()) {
-                ElytraBCheck elytraB = plugin.getCheckManager().getCheck(ElytraBCheck.class);
-                if (elytraB != null && elytraB.canRun(data)) {
-                    elytraB.flag(data, "No jump");
+            if (data.isStartGlidingThisTick() && data.isStartGlidingLastTick()) {
+                ElytraCCheck elytraC = plugin.getCheckManager().getCheck(ElytraCCheck.class);
+                if (elytraC != null && elytraC.canRun(data)) {
+                    elytraC.flag(data, "Too frequent");
                 }
             }
-        }
 
-        // ElytraC: started gliding too frequently
-        if (data.isStartGlidingThisTick() && data.isStartGlidingLastTick()) {
-            ElytraCCheck elytraC = plugin.getCheckManager().getCheck(ElytraCCheck.class);
-            if (elytraC != null && elytraC.canRun(data)) {
-                elytraC.flag(data, "Too frequent");
-            }
-        }
+            data.setTryingToRiptide(false);
 
-        // Reset tryingToRiptide at end of each tick
-        data.setTryingToRiptide(false);
-
-        runChecks(data);
+            runChecks(data);
+        }, null);
     }
 
     private void runChecks(NyxPlayerData data) {
