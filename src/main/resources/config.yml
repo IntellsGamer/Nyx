@@ -254,7 +254,7 @@ checks:
     enabled: true
     description: "Detects extended attack range (dynamic ping compensation)"
     autoban: true
-    setbacks-to-ban: 4
+    setbacks-to-ban: 6
     kicks-to-ban: 3
     threshold: 5
     decay: 1
@@ -314,10 +314,18 @@ checks:
     threshold: 5
     decay: 3
     max-violations: 15
+  hitbox:
+    enabled: true
+    description: "Detects attacks that completely miss the entity hitbox"
+    autoban: true
+    kicks-to-ban: 3
+    threshold: 5
+    decay: 3
+    max-violations: 15
     sensitivity: 0.8
     actions:
       - "alert"
-      - "kick @ 15"
+      - "kick @ 5"
 
   selfinteract:
     enabled: true
