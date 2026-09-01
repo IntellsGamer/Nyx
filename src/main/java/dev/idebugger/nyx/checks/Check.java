@@ -9,7 +9,6 @@ import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public abstract class Check {
 
@@ -214,11 +213,12 @@ public abstract class Check {
     public void runAsync(NyxPlayerData data) {
         if (!canRun(data)) return;
 
-        if (plugin.getNyxConfig().isAsyncChecks()) {
-            CompletableFuture.runAsync(() -> handle(data), plugin.getExecutorService());
-        } else {
-            handle(data);
-        }
+        // Checks read the world / player state. Packet processing is dispatched
+        // to the owning region thread (see PacketListener#handleMovement), so
+        // running checks inline keeps every world read on the correct thread.
+        // On Folia/Moonrise, dispatching them to a free-thread pool would throw
+        // "Cannot read world asynchronously", so we never do that here.
+        handle(data);
     }
 
     /**

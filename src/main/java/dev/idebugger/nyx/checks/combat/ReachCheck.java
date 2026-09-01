@@ -33,8 +33,9 @@ public class ReachCheck extends Check {
 
     @Override
     public void runAsync(NyxPlayerData data) {
+        // Runs on the owning region thread (see Check#runAsync / PacketListener).
         if (!canRun(data)) return;
-        plugin.getServer().getScheduler().runTask(plugin, () -> handle(data));
+        handle(data);
     }
 
     @Override
