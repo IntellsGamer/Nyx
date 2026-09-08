@@ -8,7 +8,13 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @CheckData(name = "Fly", description = "Detects flight, air jump, and hover exploits")
 public class FlyCheck extends Check {
@@ -17,6 +23,13 @@ public class FlyCheck extends Check {
     private static final double GRAVITY = 0.08;
     private static final double TOLERANCE = 0.05;
     private static final int MAX_AIR_ASCENDING_TICKS = 10;
+
+    // Consecutive airborne |deltaY|~0 ticks before a hover flag. Gravity always
+    // applies in vanilla, so a perfectly level hold is impossible; 6 ticks
+    // (~0.3s) tolerates the odd client-side rounding hiccup.
+    private static final int HOVER_TICKS_TO_FLAG = 6;
+
+    private final Map<UUID, Integer> hoverBuffer = new ConcurrentHashMap<>();
 
     // Water surface behaviour: jumping/swimming at a water surface legitimately
     // pops the player's torso (and the server-side "in water" flag) out of the
@@ -49,6 +62,11 @@ public class FlyCheck extends Check {
     }
 
     @Override
+    public void onPlayerQuit(UUID uuid) {
+        hoverBuffer.remove(uuid);
+    }
+
+    @Override
     public boolean isMovementCheck() {
         return true;
     }
@@ -66,22 +84,42 @@ public class FlyCheck extends Check {
         if (data.isGliding()) return;
         if (data.isInVehicle()) return;
         if (data.getPlayer().isFlying()) return;
-        if (System.currentTimeMillis() - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
+
+        Player player = data.getPlayer();
+
+        // Levitation replaces gravity with a constant upward velocity of
+        // 0.05*(level+1) blocks/tick; vertical motion during it is server
+        // driven and must not be judged as flight (shulker bullets in end
+        // cities would otherwise flag every survival player).
+        var levitation = player.getPotionEffect(PotionEffectType.LEVITATION);
+        if (levitation != null) return;
+
+        // Slow falling quarters the gravity constant; exempt rather than
+        // simulating a second drag curve here.
+        if (player.hasPotionEffect(PotionEffectType.SLOW_FALLING)) return;
+
+        // A pending unconsumed server velocity (knockback, explosion, wind
+        // charge) legitimately launches the player; skip while one is live
+        // instead of using a wall-clock grace a cheater can chain forever.
+        if (data.hasServerVelocity()) return;
+
         if (data.isInWater() || data.isInLava()) return;
         if (data.isInWeb() || data.isInPowderedSnow()) return;
         if (data.isClimbing()) return;
-        if (data.getPlayer().hasPotionEffect(PotionEffectType.SLOW_FALLING)) return;
+
+        // Riptide launch: only exempt while the boost is still plausibly in
+        // effect (vertical speed decays through the launch arc); a flat 4s
+        // window let cheaters re-arm immunity by holding a trident.
+        if (System.currentTimeMillis() - data.getLastRiptideTime() < RIPTIDE_GRACE_MS
+            && data.getVerticalSpeed() > 0.1) return;
 
         // Knockback re-applied by the velocity check temporarily launches the
-        // player upward. Skip detection until the grace window expires to avoid
-        // false-positive fly VL inflation right after a legit hit.
+        // player upward; the pending-velocity guard above already covers the
+        // common case, this catches the tail of the arc only.
         long kbGrace = plugin.getNyxConfig().getKnockbackGracePeriodMs();
         if (kbGrace > 0 && System.currentTimeMillis() - data.getLastKnockbackAppliedTime() < kbGrace) return;
 
-        // Swimming is server-authoritative while the player is on the surface;
-        // keep skipping until the swim state fully winds down as well.
         if (data.isSwimming()) return;
-
         if (data.isRecentlyInLiquid(LIQUID_RECENCY_MS)) return;
 
         Location loc = data.getPositionHistory().peekFirst().location();
@@ -102,18 +140,41 @@ public class FlyCheck extends Check {
         double lastDeltaY = data.getLastDeltaY();
         int airTicks = data.getServerAirTicks();
 
-        if (Math.abs(deltaY) < 0.001) return;
+        // Jump Boost adds 0.1 per level to the initial jump velocity: JB II
+        // legitimately produces a first-tick deltaY of 0.52, JB III of 0.62.
+        double maxJumpVelocity = 0.42;
+        var jumpBoost = player.getPotionEffect(PotionEffectType.JUMP_BOOST);
+        if (jumpBoost != null) {
+            maxJumpVelocity += 0.1 * (jumpBoost.getAmplifier() + 1);
+        }
+        // Small epsilon for client/server rounding on the jump tick.
+        maxJumpVelocity += 0.01;
 
         if (airTicks == 1) {
-            if (deltaY > 0.5) {
+            if (deltaY > maxJumpVelocity) {
                 flag(data, String.format("Ascend DY:%.4f T:%d", deltaY, airTicks));
             }
             return;
         }
 
+        // Positive vertical velocity sustained well past a jump arc (a jump
+        // peaks for ~5 ticks; fireworks/riptide already exempted above).
         if (deltaY > 0.001) {
             if (airTicks > MAX_AIR_ASCENDING_TICKS) {
                 flag(data, String.format("Ascend DY:%.4f T:%d", deltaY, airTicks));
+            }
+            return;
+        }
+
+        // An airborne client reporting |deltaY| ~ 0 is physically impossible:
+        // vanilla gravity always applies. The old early-return here made a
+        // hover cheat that sends sub-0.001 deltas completely invisible.
+        if (Math.abs(deltaY) < 0.001) {
+            hoverBuffer.merge(data.getUuid(), 1, Integer::sum);
+            int hovers = hoverBuffer.get(data.getUuid());
+            if (hovers >= HOVER_TICKS_TO_FLAG) {
+                hoverBuffer.put(data.getUuid(), 0);
+                flag(data, String.format("Hover DY:%.4f T:%d", deltaY, airTicks));
             }
             return;
         }

@@ -40,7 +40,9 @@ public class NoFallCheck extends Check {
 
     private void applyFullFallDamage(Player player, double fallDistance) {
         if (fallDistance <= 0) return;
-        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
+        // player.damage() must run on the entity's own scheduler on Folia;
+        // the global region thread does not own the player.
+        player.getScheduler().run(plugin, task -> {
             if (!player.isOnline()) return;
             if (player.hasPotionEffect(PotionEffectType.SLOW_FALLING)) return;
 
@@ -75,7 +77,7 @@ public class NoFallCheck extends Check {
                 player.setFallDistance((float) fallDistance);
                 player.damage(finalDamage);
             }
-        });
+        }, null);
     }
 
     @Override

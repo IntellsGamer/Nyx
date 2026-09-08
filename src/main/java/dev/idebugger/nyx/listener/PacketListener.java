@@ -62,6 +62,7 @@ public final class PacketListener extends PacketListenerAbstract {
             new SpeedCheck(plugin),
             new FlyCheck(plugin),
             new NoFallCheck(plugin),
+            new TimerCheck(plugin),
             new PhaseCheck(plugin),
             new JesusCheck(plugin),
             new BoatFlyCheck(plugin),
@@ -95,10 +96,12 @@ public final class PacketListener extends PacketListenerAbstract {
             new InventoryMoveCheck(plugin),
             new FastUseCheck(plugin),
             new FastBreakCheck(plugin),
+            new FastPlaceCheck(plugin),
             new WebCheck(plugin)
         ));
 
         combatChecks.add(new AimAssistCheck(plugin));
+        combatChecks.add(new KillAuraCheck(plugin));
 
         // Scaffold runs only from its dedicated block-place packet handler, so
         // it is registered (for config/VL lookup) but excluded from the generic
@@ -136,6 +139,7 @@ public final class PacketListener extends PacketListenerAbstract {
             data.setVehicleForward(steer.getForward());
             data.setVehicleHorizontal(steer.getSideways());
 
+            // Impossible input values need no Bukkit state: cancel synchronously.
             if (Math.abs(steer.getForward()) > 0.98f || Math.abs(steer.getSideways()) > 0.98f) {
                 EntitySpeedCheck speedCheck = plugin.getCheckManager().getCheck(EntitySpeedCheck.class);
                 if (speedCheck != null && speedCheck.canRun(data)) {
@@ -145,32 +149,35 @@ public final class PacketListener extends PacketListenerAbstract {
                 return;
             }
 
-            if (!player.isInsideVehicle()) {
+            // Vehicle presence is entity state: defer to the owning region
+            // thread instead of reading it on the netty thread.
+            player.getScheduler().run(plugin, task -> {
+                if (!player.isOnline() || player.isInsideVehicle()) return;
                 EntitySpeedCheck spoofCheck = plugin.getCheckManager().getCheck(EntitySpeedCheck.class);
                 if (spoofCheck != null && spoofCheck.canRun(data)) {
                     spoofCheck.flag(data, "Vehicle spoof (no vehicle)");
                 }
-                event.setCancelled(true);
-                return;
-            }
+            }, null);
 
         } else if (packetType == PacketType.Play.Client.STEER_BOAT) {
-            WrapperPlayClientSteerBoat boatPacket = new WrapperPlayClientSteerBoat(event);
-            BoatCheck boatCheck = plugin.getCheckManager().getCheck(BoatCheck.class);
-            if (boatCheck == null || !boatCheck.canRun(data)) return;
+            // Boat spoof validation reads vehicle state; run it on the region
+            // thread (flags still work, only the packet itself cannot be
+            // retroactively cancelled from there, which is fine for a flag).
+            player.getScheduler().run(plugin, task -> {
+                if (!player.isOnline()) return;
+                BoatCheck boatCheck = plugin.getCheckManager().getCheck(BoatCheck.class);
+                if (boatCheck == null || !boatCheck.canRun(data)) return;
 
-            if (!player.isInsideVehicle()) {
-                boatCheck.flag(data, "Spoofed boat (not in vehicle)");
-                event.setCancelled(true);
-                return;
-            }
+                if (!player.isInsideVehicle()) {
+                    boatCheck.flag(data, "Spoofed boat (not in vehicle)");
+                    return;
+                }
 
-            Entity vehicle = player.getVehicle();
-            if (vehicle != null && !(vehicle instanceof Boat)) {
-                boatCheck.flag(data, "Spoofed boat (vehicle=" + vehicle.getType().name() + ")");
-                event.setCancelled(true);
-                return;
-            }
+                Entity vehicle = player.getVehicle();
+                if (vehicle != null && !(vehicle instanceof Boat)) {
+                    boatCheck.flag(data, "Spoofed boat (vehicle=" + vehicle.getType().name() + ")");
+                }
+            }, null);
 
         } else if (packetType == PacketType.Play.Client.ENTITY_ACTION) {
             WrapperPlayClientEntityAction action = new WrapperPlayClientEntityAction(event);
@@ -183,18 +190,20 @@ public final class PacketListener extends PacketListenerAbstract {
             } else if (action.getAction() == WrapperPlayClientEntityAction.Action.START_FLYING_WITH_ELYTRA) {
 
                 data.incrementElytraStartPacketCount();
-
-                ElytraACheck elytraA = plugin.getCheckManager().getCheck(ElytraACheck.class);
-                if (elytraA != null && elytraA.canRun(data) && player.isGliding()) {
-                    elytraA.flag(data, "Already gliding");
-                    event.setCancelled(true);
-                    return;
-                }
-
                 data.setStartGlidingThisTick(true);
 
-                ElytraBCheck elytraB = plugin.getCheckManager().getCheck(ElytraBCheck.class);
-                if (elytraB != null && elytraB.canRun(data)) {
+                // isGliding()/isInWaterOrBubbleColumn() are entity state: defer.
+                player.getScheduler().run(plugin, task -> {
+                    if (!player.isOnline()) return;
+
+                    ElytraACheck elytraA = plugin.getCheckManager().getCheck(ElytraACheck.class);
+                    if (elytraA != null && elytraA.canRun(data) && player.isGliding()) {
+                        elytraA.flag(data, "Already gliding");
+                        return;
+                    }
+
+                    ElytraBCheck elytraB = plugin.getCheckManager().getCheck(ElytraBCheck.class);
+                    if (elytraB == null || !elytraB.canRun(data)) return;
                     if (player.isInWaterOrBubbleColumn()) {
                         // Water disables elytra jumping; this is a legitimate surface glide
                         data.setGlideWithoutJump(false);
@@ -203,8 +212,7 @@ public final class PacketListener extends PacketListenerAbstract {
                     } else {
                         data.setGlideWithoutJump(true);
                     }
-                }
-
+                }, null);
             }
 
         } else if (packetType == PacketType.Play.Client.PLAYER_DIGGING) {
@@ -225,30 +233,35 @@ public final class PacketListener extends PacketListenerAbstract {
             }
 
             if (digAction == com.github.retrooper.packetevents.protocol.player.DiggingAction.RELEASE_USE_ITEM) {
-                ItemStack mainHand = player.getInventory().getItemInMainHand();
-                ItemStack offHand = player.getInventory().getItemInOffHand();
+                // Inventory + water state are Bukkit reads: defer to the
+                // player's region thread (unsafe on netty, illegal on Folia).
+                player.getScheduler().run(plugin, task -> {
+                    if (!player.isOnline()) return;
+                    ItemStack mainHand = player.getInventory().getItemInMainHand();
+                    ItemStack offHand = player.getInventory().getItemInOffHand();
 
-                if (mainHand.getType() == Material.TRIDENT && mainHand.containsEnchantment(org.bukkit.enchantments.Enchantment.RIPTIDE)
-                        || offHand.getType() == Material.TRIDENT && offHand.containsEnchantment(org.bukkit.enchantments.Enchantment.RIPTIDE)) {
+                    if (mainHand.getType() == Material.TRIDENT && mainHand.containsEnchantment(org.bukkit.enchantments.Enchantment.RIPTIDE)
+                            || offHand.getType() == Material.TRIDENT && offHand.containsEnchantment(org.bukkit.enchantments.Enchantment.RIPTIDE)) {
 
-                    data.setTryingToRiptide(true);
+                        data.setTryingToRiptide(true);
 
-                    boolean inWater = player.isInWater();
+                        boolean inWater = player.isInWater();
 
-                    TridentACheck tridentA = plugin.getCheckManager().getCheck(TridentACheck.class);
-                    if (tridentA != null && tridentA.canRun(data) && !inWater) {
-                        tridentA.flag(data, "Not in water");
-                    }
-
-                    long now = System.currentTimeMillis();
-                    if (data.getLastRiptideTime() > 0 && now - data.getLastRiptideTime() < 450) {
-                        TridentBCheck tridentB = plugin.getCheckManager().getCheck(TridentBCheck.class);
-                        if (tridentB != null && tridentB.canRun(data)) {
-                            tridentB.flag(data, "Freq:" + (now - data.getLastRiptideTime()) + "ms");
+                        TridentACheck tridentA = plugin.getCheckManager().getCheck(TridentACheck.class);
+                        if (tridentA != null && tridentA.canRun(data) && !inWater) {
+                            tridentA.flag(data, "Not in water");
                         }
+
+                        long now = System.currentTimeMillis();
+                        if (data.getLastRiptideTime() > 0 && now - data.getLastRiptideTime() < 450) {
+                            TridentBCheck tridentB = plugin.getCheckManager().getCheck(TridentBCheck.class);
+                            if (tridentB != null && tridentB.canRun(data)) {
+                                tridentB.flag(data, "Freq:" + (now - data.getLastRiptideTime()) + "ms");
+                            }
+                        }
+                        data.setLastRiptideTime(now);
                     }
-                    data.setLastRiptideTime(now);
-                }
+                }, null);
             }
 
         } else if (packetType == PacketType.Play.Client.ANIMATION) {
@@ -279,15 +292,29 @@ public final class PacketListener extends PacketListenerAbstract {
                 data.setSentAttack(true);
                 data.setSentAttackThisTick(true);
                 data.setSentAnimationSinceLastAttack(false);
+
+                // KillAura signals need entity + world state: evaluate on the
+                // player's region thread (netty reads are illegal on Folia).
+                player.getScheduler().run(plugin, task -> {
+                    if (!player.isOnline()) return;
+                    KillAuraCheck killAura = plugin.getCheckManager().getCheck(KillAuraCheck.class);
+                    if (killAura != null && killAura.canRun(data)) {
+                        killAura.handleAttack(data, player, targetId);
+                    }
+                }, null);
             }
 
         } else if (packetType == PacketType.Play.Client.USE_ITEM) {
             data.setAlerted(false);
             data.recordRightClick();
-            ItemStack hand = player.getInventory().getItemInMainHand();
-            if (hand.getType() == org.bukkit.Material.FIREWORK_ROCKET) {
-                data.setLastFireworkTime(System.currentTimeMillis());
-            }
+            // Inventory read deferred off the netty thread.
+            player.getScheduler().run(plugin, task -> {
+                if (!player.isOnline()) return;
+                ItemStack hand = player.getInventory().getItemInMainHand();
+                if (hand.getType() == org.bukkit.Material.FIREWORK_ROCKET) {
+                    data.setLastFireworkTime(System.currentTimeMillis());
+                }
+            }, null);
 
         } else if (packetType == PacketType.Play.Client.PLAYER_BLOCK_PLACEMENT) {
             data.setAlerted(false);
@@ -357,14 +384,26 @@ public final class PacketListener extends PacketListenerAbstract {
                     // check forgives the whole window instead of flagging.
                     boolean volley = data.hasServerVelocity();
                     var vec = velocityPacket.getVelocity();
-                    data.recordServerVelocity(
-                        new org.bukkit.util.Vector(vec.x, vec.y, vec.z),
-                        now
-                    );
+                    org.bukkit.util.Vector applied = new org.bukkit.util.Vector(vec.x, vec.y, vec.z);
+                    data.recordServerVelocity(applied, now);
                     data.setLastVelocityTime(now);
                     if (volley) {
                         data.setVelocityMultiHit(true);
                         data.setLastVelocityMultiHitTime(now);
+                    }
+
+                    // Wall carve-out (deferred: block reads are not allowed on
+                    // the netty thread). If the expected knockback path runs
+                    // into solid blocks, the collision legitimately eats the
+                    // velocity and the velocity check must not demand it.
+                    data.setVelocityBlockedByWall(false);
+                    double horiz = Math.hypot(applied.getX(), applied.getZ());
+                    if (horiz > 0.05 || Math.abs(applied.getY()) > 0.05) {
+                        player.getScheduler().run(plugin, task -> {
+                            if (!player.isOnline()) return;
+                            data.setVelocityBlockedByWall(
+                                isKnockbackPathBlocked(player, applied));
+                        }, null);
                     }
                 }
             }
@@ -386,6 +425,53 @@ public final class PacketListener extends PacketListenerAbstract {
             || type == PacketType.Play.Client.PLAYER_ROTATION
             || type == PacketType.Play.Client.PLAYER_POSITION_AND_ROTATION
             || type == PacketType.Play.Client.PLAYER_FLYING;
+    }
+
+    /**
+     * True when the expected knockback path from the player's current
+     * position hits a solid block within the distance the velocity would
+     * carry them. Runs on the owning region thread (caller defers).
+     */
+    private boolean isKnockbackPathBlocked(Player player, org.bukkit.util.Vector applied) {
+        org.bukkit.Location loc = player.getLocation();
+        double dx = applied.getX();
+        double dy = applied.getY();
+        double dz = applied.getZ();
+        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (distance < 0.05) return false;
+
+        // 3 full ticks of the decaying velocity is the practical span the
+        // velocity check judges; a wall inside that span eats the motion.
+        double spanX = dx * 2.5, spanY = dy * 2.5, spanZ = dz * 2.5;
+        double span = Math.sqrt(spanX * spanX + spanY * spanY + spanZ * spanZ);
+        if (span < 0.05) return false;
+
+        // DDA voxel walk from the player's chest height along the span.
+        double px = loc.getX(), py = loc.getY() + 1.0, pz = loc.getZ();
+        double stepX = spanX / span * 0.5, stepY = spanY / span * 0.5, stepZ = spanZ / span * 0.5;
+        int steps = (int) Math.ceil(span / 0.5);
+        World world = player.getWorld();
+        for (int i = 0; i < steps; i++) {
+            px += stepX;
+            py += stepY;
+            pz += stepZ;
+            Material type = world.getBlockAt(
+                (int) Math.floor(px), (int) Math.floor(py), (int) Math.floor(pz)).getType();
+            if (type.isCollidable() && !type.name().contains("SLAB") || isFullSolid(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isFullSolid(Material type) {
+        if (!type.isCollidable()) return false;
+        String n = type.name();
+        // Slabs/stairs/fences/panes partially block but leave movement paths;
+        // only treat unambiguously full cubes as wall for this heuristic.
+        return !n.endsWith("SLAB") && !n.endsWith("STAIRS") && !n.endsWith("FENCE")
+            && !n.endsWith("WALL") && !n.endsWith("PANE") && !n.endsWith("CARPET")
+            && !n.endsWith("TRAPDOOR") && !n.endsWith("DOOR");
     }
 
     private NyxPlayerData.IceType detectIce(World world, Location loc) {
@@ -454,14 +540,44 @@ public final class PacketListener extends PacketListenerAbstract {
             Location toLocation;
             if (isPositionPacket) {
                 toLocation = new Location(player.getWorld(), x, y, z, yaw, pitch);
+
+                // Teleport acknowledgment: the first position packet after a
+                // server teleport (setbacks, pearls, plugin /tp) is a re-sync,
+                // not a movement. Its delta crosses the teleport distance and
+                // would otherwise contaminate every movement check — including
+                // flagging players Nyx itself just setback (self-flag loop).
+                org.bukkit.Location pendingTeleport = data.consumePendingTeleport();
+                if (pendingTeleport != null) {
+                    double tpDx = x - pendingTeleport.getX();
+                    double tpDy = y - pendingTeleport.getY();
+                    double tpDz = z - pendingTeleport.getZ();
+                    boolean acknowledgesTeleport = tpDx * tpDx + tpDy * tpDy + tpDz * tpDz < 9.0; // 3-block tolerance
+                    data.clearPendingTeleport();
+                    if (acknowledgesTeleport) {
+                        // Re-baseline: wipe pre-teleport history so the ack
+                        // snapshot enters with zero deltas.
+                        data.clearPositionHistory();
+                        data.addMovementSnapshot(toLocation, onGround);
+                        data.addRotationSnapshot(yaw, pitch);
+                        data.setLastSafeLocation(toLocation.clone());
+                        data.resetAccumulatedPacketFall();
+                        data.updatePositionFromPacket(y, onGround);
+                        data.setRawPacket(y, onGround);
+                        runChecks(data);
+                        return;
+                    }
+                    // Not acknowledging: fall through as normal movement (a
+                    // cheater ignoring the teleport is handled by setback
+                    // escalation, not by phantom deltas).
+                }
+
                 data.addMovementSnapshot(toLocation, onGround);
             } else {
                 toLocation = player.getLocation();
             }
             data.addRotationSnapshot(yaw, pitch);
 
-            long transactionId = data.getLastTransactionId() + 1;
-            data.recordTransaction(transactionId, System.currentTimeMillis());
+            data.recordTransaction(data.getLastTransactionId() + 1, System.currentTimeMillis());
 
             data.setInWater(player.isInWater());
             data.setInLava(player.isInLava());

@@ -126,6 +126,9 @@ public final class Nyx extends JavaPlugin implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         NyxPlayerData data = playerDataManager.createData(player);
+        // Seed the bypass cache immediately so the first movement packets of
+        // the session don't pay raw permission lookups.
+        data.refreshBypassCache();
         if (storageManager != null) {
             seedPersistentViolations(data);
             seedPersistentEscalation(data);
@@ -141,7 +144,40 @@ public final class Nyx extends JavaPlugin implements Listener {
         if (storageManager != null) {
             persistPlayerViolations(player.getUniqueId());
         }
+        // Let every check drop its per-player state before the data is gone;
+        // otherwise the per-check state maps leak an entry per player, forever.
+        checkManager.getChecks().values().forEach(c -> c.onPlayerQuit(player.getUniqueId()));
         playerDataManager.removeData(player);
+    }
+
+    /**
+     * Server-initiated teleports (setbacks, ender pearls, plugin /tp, portals)
+     * reset the client's position. Without recording them, the first movement
+     * packet after the teleport produces a phantom delta that movement checks
+     * misread — including Nyx's own setbacks, which caused self-flag loops.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerTeleport(org.bukkit.event.player.PlayerTeleportEvent event) {
+        NyxPlayerData data = playerDataManager.getData(event.getPlayer());
+        if (data != null && event.getTo() != null) {
+            data.recordTeleport(event.getTo());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(org.bukkit.event.player.PlayerChangedWorldEvent event) {
+        NyxPlayerData data = playerDataManager.getData(event.getPlayer());
+        if (data != null) {
+            data.clearPositionHistory();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(org.bukkit.event.player.PlayerRespawnEvent event) {
+        NyxPlayerData data = playerDataManager.getData(event.getPlayer());
+        if (data != null) {
+            data.clearPositionHistory();
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -157,7 +193,10 @@ public final class Nyx extends JavaPlugin implements Listener {
 
     private void startViolationDecayTask() {
         getServer().getGlobalRegionScheduler().runAtFixedRate(this, task -> {
-            playerDataManager.getAllData().forEach((uuid, data) -> data.tickViolations());
+            playerDataManager.getAllData().forEach((uuid, data) -> {
+                data.tickViolations();
+                data.refreshBypassCache();
+            });
         }, 20L, 20L);
     }
 

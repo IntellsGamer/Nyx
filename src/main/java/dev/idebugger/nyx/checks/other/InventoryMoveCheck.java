@@ -42,7 +42,20 @@ public class InventoryMoveCheck extends Check {
             return;
         }
 
+        // The vanilla client stops *input* while a container is open, but the
+        // player keeps sliding on momentum for a couple of ticks (sprint
+        // decays 0.35 -> 0.15 -> 0.05). A flat 0.05 cap flagged everyone who
+        // opened their inventory mid-run, twice. Allow a short grace of
+        // decaying momentum: within the first ticks after movement stops,
+        // the cap scales down from the last speed instead of being flat.
+        double lastSpeed = Math.hypot(data.getLastDeltaX(), data.getLastDeltaZ());
+        long now = System.currentTimeMillis();
+        long sinceMove = now - Math.max(data.getLastAttackTime(), data.getLastRightClickTime());
         double maxSpeed = 0.05;
+        if (lastSpeed > 0.13 && sinceMove > 50) {
+            // Only decay-based tolerance for the immediate slide-out ticks.
+            maxSpeed = Math.max(0.05, lastSpeed * 0.55);
+        }
 
         if (speed > maxSpeed) {
             flag(data, String.format(

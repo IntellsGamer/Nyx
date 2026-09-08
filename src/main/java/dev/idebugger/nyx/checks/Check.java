@@ -3,12 +3,11 @@ package dev.idebugger.nyx.checks;
 import dev.idebugger.nyx.Nyx;
 import dev.idebugger.nyx.NyxConfig;
 import dev.idebugger.nyx.data.NyxPlayerData;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.UUID;
 
 public abstract class Check {
 
@@ -25,6 +24,14 @@ public abstract class Check {
 
     public abstract void handle(NyxPlayerData data);
     public abstract boolean isMovementCheck();
+
+    /**
+     * Called when a player disconnects so checks that keep per-player state
+     * maps can drop the entry. Without this every per-check state map grows
+     * forever on a public server.
+     */
+    public void onPlayerQuit(UUID uuid) {
+    }
 
     public String getName() {
         return name;
@@ -52,7 +59,10 @@ public abstract class Check {
 
         if (data.isExempt()) return false;
 
-        if (player.hasPermission("nyx.bypass.*") || player.hasPermission("nyx.bypass." + configKey)) {
+        // Bypass lookups hit the permission registry and this method runs for
+        // every check on every movement packet. Cache the two lookups in the
+        // player data and refresh them periodically (see NyxPlayerData).
+        if (data.getBypassAll() || data.hasBypass(configKey)) {
             return false;
         }
 

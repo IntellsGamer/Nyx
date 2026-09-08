@@ -8,8 +8,6 @@ import dev.idebugger.nyx.data.NyxPlayerData.IceType;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import java.util.Map;
 import java.util.UUID;
@@ -22,12 +20,6 @@ public class SpeedCheck extends Check {
     private static final long GLIDE_GRACE_MS = 3000;
     private static final long RIPTIDE_GRACE_MS = 4000;
 
-    // Knockback (natural or re-applied by the velocity check) shoves the
-    // player backward faster than walking. If they keep moving/jumping in that
-    // direction the horizontal speed reads as over-cap for a few ticks. Skip the
-    // check until the momentum settles so a legit hit can't flag as speed.
-    private static final long KNOCKBACK_GRACE_MS = 2000;
-
     // Momentum picked up on ice legitimately carries further than the vanilla
     // caps allow while it fades out. The allowance already covers that coast, so
     // the extra grace window is kept tiny: only a couple of ticks of slop for
@@ -35,12 +27,15 @@ public class SpeedCheck extends Check {
     private static final int OVER_LIMIT_TICKS_TO_FLAG = 3;
     private static final int OVER_LIMIT_DECAY_TICKS = 3;
 
-    private static final double BASE_MOVEMENT_SPEED = 0.1;
-
     private final Map<UUID, Integer> overLimitTicks = new ConcurrentHashMap<>();
 
     public SpeedCheck(Nyx plugin) {
         super(plugin);
+    }
+
+    @Override
+    public void onPlayerQuit(UUID uuid) {
+        overLimitTicks.remove(uuid);
     }
 
     @Override
@@ -56,15 +51,22 @@ public class SpeedCheck extends Check {
         if (data.isGliding() || data.isWasGliding()) return;
 
         long now = System.currentTimeMillis();
-        if (now - data.getLastFireworkTime() < FIREWORK_GRACE_MS) return;
-        if (now - data.getLastGlideTime() < GLIDE_GRACE_MS) return;
-        if (now - data.getLastRiptideTime() < RIPTIDE_GRACE_MS) return;
 
-        long kbGrace = plugin.getNyxConfig().getKnockbackGracePeriodMs();
-        if (kbGrace > 0) {
-            long lastKb = Math.max(data.getLastKnockbackAppliedTime(), data.getLastVelocityTime());
-            if (now - lastKb < Math.max(kbGrace, KNOCKBACK_GRACE_MS)) return;
-        }
+        // State-based exemptions instead of blanket time windows: a wall-clock
+        // grace a cheater can re-arm forever (hold a firework and right-click
+        // every few seconds) is replaced by "is the condition actually live".
+        // A pending unconsumed server velocity IS the knockback/explosion
+        // window — consume it, don't time it.
+        if (data.hasServerVelocity()) return;
+
+        // Firework/glide momentum: only exempt while the boost is still
+        // physically plausible (the player is still moving faster than any
+        // normal speed), not for a flat multi-second window afterwards.
+        if (now - data.getLastFireworkTime() < FIREWORK_GRACE_MS && data.getHorizontalSpeed() > 0.5) return;
+        if (now - data.getLastGlideTime() < GLIDE_GRACE_MS && data.getHorizontalSpeed() > 0.5) return;
+        // Riptide: same treatment, plus the vertical component of the launch arc.
+        if (now - data.getLastRiptideTime() < RIPTIDE_GRACE_MS
+            && (data.getHorizontalSpeed() > 0.5 || data.getVerticalSpeed() > 0.1)) return;
 
         double speed = data.getHorizontalSpeed();
         if (speed < 0.01) return;
@@ -117,7 +119,8 @@ public class SpeedCheck extends Check {
         }
 
         // Still airborne over the ice itself: sprint-jumps on ice legitimately
-        // reach ~1.6/1.8/2.6 blocks-tick, keep those generous caps.
+        // reach ~1.6/1.8/2.6 blocks-tick, keep those generous caps. The boost
+        // must scale airborne sprint-jump caps too or buffed players false-flag.
         IceType ice = data.getIceType();
         if (ice != null && ice != IceType.NONE) {
             return switch (ice) {
@@ -127,30 +130,24 @@ public class SpeedCheck extends Check {
             };
         }
 
-        return Math.max(0.45, momentum);
+        return Math.max(Math.max(0.45 * boost, 0.45), momentum);
     }
-
     /**
-     * Ground-speed multiplier from the movement-speed attribute and the Speed
-     * potion effect. Returns 1.0 for an unbuffed player, so the vanilla caps are
-     * left untouched. The movement-speed attribute has a base of 0.1 and scales
-     * walk/sprint speed proportionally, and the Speed effect adds +20% per level
-     * (Speed I = 1.2x, Speed II = 1.4x, ...).
+     * Ground-speed multiplier from the movement-speed attribute. On modern
+     * MC the Speed potion effect IS an attribute modifier, so getValue() already
+     * includes it — the old code multiplied the potion effect in again on top,
+     * inflating the cap by up to ~1.96x for Speed II players (a bypass letting
+     * them move 96% over vanilla max with zero flags). The attribute alone is
+     * the truth; it is never double-counted here.
      */
     private double speedBoost(NyxPlayerData data) {
         Player player = data.getPlayer();
-        double boost = 1.0;
+        if (player == null) return 1.0;
 
         AttributeInstance attr = player.getAttribute(Attribute.MOVEMENT_SPEED);
-        if (attr != null && attr.getValue() > BASE_MOVEMENT_SPEED) {
-            boost *= attr.getValue() / BASE_MOVEMENT_SPEED;
+        if (attr != null && attr.getBaseValue() > 0 && attr.getValue() > attr.getBaseValue()) {
+            return attr.getValue() / attr.getBaseValue();
         }
-
-        PotionEffect speed = player.getPotionEffect(PotionEffectType.SPEED);
-        if (speed != null) {
-            boost *= 1.0 + 0.2 * (speed.getAmplifier() + 1);
-        }
-
-        return boost;
+        return 1.0;
     }
 }

@@ -29,6 +29,11 @@ public class ExtraElytraCheck extends Check {
     }
 
     @Override
+    public void onPlayerQuit(UUID uuid) {
+        stateMap.remove(uuid);
+    }
+
+    @Override
     public boolean isMovementCheck() {
         return true;
     }

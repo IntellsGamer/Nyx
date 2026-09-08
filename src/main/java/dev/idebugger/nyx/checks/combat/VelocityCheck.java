@@ -79,6 +79,25 @@ public class VelocityCheck extends Check {
 
         long now = System.currentTimeMillis();
 
+        // Liquids and cobwebs legitimately drown applied velocity in drag:
+        // a knockback in water or a web is consumed far below the ratio but
+        // is 100% vanilla behaviour. Never judge consumption inside them.
+        if (data.isInWater() || data.isInLava() || data.isInWeb() || data.isInPowderedSnow()) {
+            data.resetVelocityBuffer(0.0);
+            data.clearServerVelocity();
+            return;
+        }
+
+        // A knockback aimed into a wall/corner is legitimately eaten by the
+        // collision: the expected path is blocked, observed motion ~0 is
+        // correct physics, not resistance. The listener sets this flag when
+        // the expected vector intersects a solid block within the buffer span.
+        if (data.isVelocityBlockedByWall()) {
+            data.resetVelocityBuffer(0.0);
+            data.clearServerVelocity();
+            return;
+        }
+
         // Mob volleys and damage staggers: the motion no longer follows any
         // single buffered vector, so enforce nothing until the dust settles.
         boolean messyWindow = (data.isVelocityMultiHit()
@@ -222,9 +241,9 @@ public class VelocityCheck extends Check {
 
         data.setLastKnockbackAppliedTime(System.currentTimeMillis());
 
-        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
+        player.getScheduler().run(plugin, task -> {
             if (!player.isOnline()) return;
             player.setVelocity(applied.clone());
-        });
+        }, null);
     }
 }

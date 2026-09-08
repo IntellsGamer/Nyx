@@ -59,7 +59,7 @@ public final class PunishmentManager {
     }
 
     private void setback(Player player) {
-        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
+        player.getScheduler().run(plugin, task -> {
             if (!player.isOnline()) return;
             var data = plugin.getPlayerDataManager().getData(player);
             if (data == null) return;
@@ -82,7 +82,7 @@ public final class PunishmentManager {
                 player.teleportAsync(loc.clone().add(0, 0.5, 0));
                 data.setAlerted(false);
             }
-        });
+        }, null);
     }
 
     private Component buildPrefixed(String msgKey, String... placeholders) {
@@ -102,12 +102,12 @@ public final class PunishmentManager {
     }
 
     private void kick(Player player, Check check) {
-        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
+        player.getScheduler().run(plugin, task -> {
             if (!player.isOnline()) return;
             String kickMsg = plugin.getNyxConfig().getMessage("punishment.kick", "check", check.getName());
             player.kick(legacy.deserialize(kickMsg));
             broadcastPunishment("punishment.notify-staff", player.getName(), check.getName());
-        });
+        }, null);
     }
 
     private void ban(Player player, Check check) {
@@ -132,7 +132,7 @@ public final class PunishmentManager {
 
     private void nativeBan(String source, String reason, long durationMs, Player player) {
         final long effectiveMs = durationMs <= 0 ? 3L * 24 * 60 * 60 * 1000 : durationMs;
-        plugin.getServer().getGlobalRegionScheduler().run(plugin, task -> {
+        player.getScheduler().run(plugin, task -> {
             if (player == null || !player.isOnline()) return;
             String banMsg = plugin.getNyxConfig().getMessage("punishment.ban");
             player.kick(legacy.deserialize(banMsg));
@@ -143,6 +143,6 @@ public final class PunishmentManager {
             Bukkit.getBanList(BanList.Type.NAME).addBan(player.getName(), reason, expiry, "Nyx (" + source + ")");
 
             broadcastPunishment("punishment.broadcast", player.getName(), source);
-        });
+        }, null);
     }
 }

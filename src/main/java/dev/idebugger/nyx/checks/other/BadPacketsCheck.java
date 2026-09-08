@@ -63,14 +63,26 @@ public class BadPacketsCheck extends Check {
         var history = data.getPositionHistory();
         if (history.size() >= 2) {
             var first = history.peekFirst();
-            var second = history.stream().skip(1).findFirst().orElse(null);
-            if (first != null && second != null) {
-                double firstX = first.location().getX();
-                double firstZ = first.location().getZ();
-                double secondX = second.location().getX();
-                double secondZ = second.location().getZ();
-                if (firstX == secondX && firstZ == secondZ && data.getHorizontalSpeed() > 0.1) {
-                    flag(data, "NoDeltaUpdate");
+            // Deque iterator instead of stream().skip(): this runs per packet.
+            var it = history.iterator();
+            it.next();
+            if (it.hasNext()) {
+                var second = it.next();
+                if (first != null && second != null) {
+                    long dt = first.timestamp() - second.timestamp();
+                    // The old condition (identical X/Z AND horizontalSpeed >
+                    // 0.1) was self-contradictory — the speed is computed from
+                    // those same deltas, so it was always exactly 0 here and
+                    // the branch could never fire. What is actually suspicious
+                    // is a frozen position-claim that persists far longer
+                    // than a vanilla client ever stalls (e.g. a desynced
+                    // NoPos-check claiming onGround at a stale spot).
+                    boolean frozenXZ = first.location().getX() == second.location().getX()
+                        && first.location().getZ() == second.location().getZ()
+                        && first.location().getY() == second.location().getY();
+                    if (frozenXZ && dt > 1_500_000_000L) {
+                        flag(data, String.format("FrozenPos T:%dms", dt / 1_000_000L));
+                    }
                 }
             }
         }

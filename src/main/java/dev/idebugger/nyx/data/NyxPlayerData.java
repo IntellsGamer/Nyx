@@ -1,6 +1,7 @@
 package dev.idebugger.nyx.data;
 
 import dev.idebugger.nyx.Nyx;
+import dev.idebugger.nyx.checks.Check;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -18,11 +19,9 @@ public final class NyxPlayerData {
 
     private final ConcurrentLinkedDeque<MovementSnapshot> positionHistory;
     private final ConcurrentLinkedDeque<RotationSnapshot> rotationHistory;
-    private final ConcurrentLinkedDeque<Long> transactionTimestamps;
     private final ConcurrentHashMap<String, Integer> violations;
     private final ConcurrentHashMap<String, Integer> setbackCounts;
     private final ConcurrentHashMap<String, Integer> kickCounts;
-    private final ConcurrentHashMap<Integer, Boolean> pendingTransactions;
 
     // One-shot setback tracking: the highest "setback @ N" threshold already acted
     // on for each check during the current sustained-cheat period. Re-armed when
@@ -149,6 +148,31 @@ public final class NyxPlayerData {
     private int lastPlaceFace;
     private boolean placedScaffoldThisTick;
 
+    // Cached nyx.bypass permission lookups: canRun() executes for ~30 checks
+    // per movement packet and a raw hasPermission() each time hammers the
+    // permission registry. Refreshed once a second (see refreshBypassCache).
+    private boolean bypassAll;
+    private final Set<String> bypassChecks = ConcurrentHashMap.newKeySet();
+    private long bypassCacheTime;
+
+    // Position the server last teleported the player to (setbacks, ender
+    // pearls, plugin teleports). The first client movement packet after a
+    // teleport is a re-sync, not a real movement: deltas across it must be
+    // discarded or every check misreads them.
+    private Location pendingTeleport;
+    private long lastTeleportTime;
+
+    // Velocity carve-out: when a knockback's expected path is blocked by a
+    // wall/corner, the legit observed motion is legitimately ~0. The velocity
+    // check consults this flag (set by the listener while resolving blocks).
+    private boolean velocityBlockedByWall;
+
+    // Timer balance: accumulated expected-vs-observed tick time. Positive
+    // means the client owes time (moving too fast), negative means credit
+    // (catch-up after lag). Balance-based timing is immune to jitter bursts.
+    private double timerBalance;
+    private long timerLastRealNs;
+
     private final Deque<ServerVelocity> serverVelocityBuffer = new ArrayDeque<>();
     private static final long SERVER_VELOCITY_TIMEOUT_MS = 3000;
     private double velocityBuffer;
@@ -162,11 +186,9 @@ public final class NyxPlayerData {
         this.uuid = player.getUniqueId();
         this.positionHistory = new ConcurrentLinkedDeque<>();
         this.rotationHistory = new ConcurrentLinkedDeque<>();
-        this.transactionTimestamps = new ConcurrentLinkedDeque<>();
         this.violations = new ConcurrentHashMap<>();
         this.setbackCounts = new ConcurrentHashMap<>();
         this.kickCounts = new ConcurrentHashMap<>();
-        this.pendingTransactions = new ConcurrentHashMap<>();
         this.attackTimes = new ArrayDeque<>();
         this.rightClickTimes = new ArrayDeque<>();
         this.velocity = new Vector();
@@ -256,25 +278,87 @@ public final class NyxPlayerData {
     }
 
     public void recordTransaction(long id, long timestamp) {
-        pendingTransactions.put((int) id, false);
         this.lastTransactionId = id;
         this.lastTransactionTimestamp = timestamp;
     }
 
-    public void confirmTransaction(long id) {
-        pendingTransactions.put((int) id, true);
-        if (transactionTimestamps.size() >= 20) {
-            transactionTimestamps.pollLast();
+    /**
+     * Refreshes the cached bypass permissions. Called once per second from the
+     * decay task instead of on every canRun() call (30+ checks per packet).
+     */
+    public void refreshBypassCache() {
+        Player p = getPlayer();
+        if (p == null) return;
+        long now = System.currentTimeMillis();
+        if (now - bypassCacheTime < 1000) return;
+        bypassCacheTime = now;
+        bypassAll = p.hasPermission("nyx.bypass.*");
+        bypassChecks.clear();
+        Nyx plugin = Nyx.get();
+        if (plugin != null) {
+            for (Check check : plugin.getCheckManager().getChecks().values()) {
+                if (!bypassAll && p.hasPermission("nyx.bypass." + check.getConfigKey())) {
+                    bypassChecks.add(check.getConfigKey());
+                }
+            }
         }
-        transactionTimestamps.addFirst(System.currentTimeMillis());
+    }
+
+    public boolean getBypassAll() { return bypassAll; }
+
+    public boolean hasBypass(String checkKey) {
+        return bypassChecks.contains(checkKey);
+    }
+
+    /**
+     * Marks a server-initiated teleport (setback, pearl, plugin /tp). The next
+     * movement packet acknowledging it must be treated as a position re-sync.
+     */
+    public void recordTeleport(Location loc) {
+        this.pendingTeleport = loc.clone();
+        this.lastTeleportTime = System.currentTimeMillis();
+        // Physics state is meaningless across a teleport.
+        this.velocityBuffer = 0;
+        this.serverAirTicks = 0;
+        this.iceMomentumAllowance = 0;
+    }
+
+    public Location consumePendingTeleport() {
+        Location t = pendingTeleport;
+        if (t != null && System.currentTimeMillis() - lastTeleportTime > 10_000) {
+            pendingTeleport = null;
+            return null;
+        }
+        return t;
+    }
+
+    public void clearPendingTeleport() {
+        this.pendingTeleport = null;
+    }
+
+    public long getLastTeleportTime() { return lastTeleportTime; }
+
+    public boolean isVelocityBlockedByWall() { return velocityBlockedByWall; }
+    public void setVelocityBlockedByWall(boolean v) { this.velocityBlockedByWall = v; }
+
+    public double getTimerBalance() { return timerBalance; }
+    public void setTimerBalance(double v) { this.timerBalance = v; }
+    public void addTimerBalance(double delta) { this.timerBalance = Math.max(-1000, Math.min(1000, this.timerBalance + delta)); }
+    public long getTimerLastRealNs() { return timerLastRealNs; }
+    public void setTimerLastRealNs(long v) { this.timerLastRealNs = v; }
+
+    /**
+     * Window-confirmation packets were removed from the vanilla protocol in
+     * 1.17, so this callback never fires on modern clients; kept only so old
+     * forks that still send it do not error. It no longer accumulates state
+     * (the previous implementation leaked an entry per movement packet).
+     */
+    public void confirmTransaction(long id) {
+        // no-op: see javadoc
     }
 
     public long getTicksSinceJoin() {
         return (System.currentTimeMillis() - joinTime) / 50L;
-    }
-
-    public long getPingAdjustedTimestamp() {
-        return System.currentTimeMillis() - (ping / 2L);
     }
 
     public void recordAttack() {
@@ -596,6 +680,24 @@ public final class NyxPlayerData {
     public void setVelocityMultiHit(boolean multi) { this.velocityMultiHit = multi; }
     public long getLastVelocityMultiHitTime() { return lastVelocityMultiHitTime; }
     public void setLastVelocityMultiHitTime(long time) { this.lastVelocityMultiHitTime = time; }
+    /** Drops all movement state; used on world change / respawn where old positions are meaningless. */
+    public void clearPositionHistory() {
+        positionHistory.clear();
+        rotationHistory.clear();
+        this.deltaX = 0; this.deltaY = 0; this.deltaZ = 0;
+        this.lastDeltaX = 0; this.lastDeltaY = 0; this.lastDeltaZ = 0;
+        this.horizontalSpeed = 0;
+        this.verticalSpeed = 0;
+        this.acceleration = new Vector(0, 0, 0);
+        this.serverAirTicks = 0;
+        this.iceMomentumAllowance = 0;
+        this.lastPosPacketY = Double.NaN;
+        this.accumulatedPacketFall = 0;
+        this.timerBalance = 0;
+        this.timerLastRealNs = 0;
+        this.velocityBuffer = 0;
+    }
+
     public ConcurrentLinkedDeque<MovementSnapshot> getPositionHistory() { return positionHistory; }
     public ConcurrentLinkedDeque<RotationSnapshot> getRotationHistory() { return rotationHistory; }
     public ConcurrentHashMap<String, Integer> getViolationMap() { return violations; }
